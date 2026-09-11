@@ -48,7 +48,7 @@ type Repository struct {
 	pair     core.Association
 	capacity int
 	provider Provider
-	journal  *durable.Journal
+	journal  durable.Store
 	s        state
 	broken   bool
 	now      func() time.Time
@@ -57,7 +57,23 @@ type Repository struct {
 var _ core.Repository = (*Repository)(nil)
 
 func Open(c upstream.Config, a core.Association, capacity int, p Provider) (*Repository, error) {
-	if c.Validate() != nil || !a.Valid() || capacity < 1 || capacity > 100000 || p == nil {
+	j, raw, err := durable.Open(c.StateDir, "transeuroogs-segmented-ingestion-v1")
+	if err != nil {
+		return nil, err
+	}
+	return OpenStore(c, a, capacity, p, j, raw)
+}
+
+// OpenStore takes ownership of a persistence implementation and recovered state.
+func OpenStore(c upstream.Config, a core.Association, capacity int, p Provider, j durable.Store, raw []byte) (*Repository, error) {
+	defer clear(raw)
+	success := false
+	defer func() {
+		if !success && j != nil {
+			j.Close()
+		}
+	}()
+	if c.Validate() != nil || !a.Valid() || capacity < 1 || capacity > 100000 || p == nil || j == nil {
 		return nil, core.ErrInvalid
 	}
 	binding, _ := json.Marshal(struct {
@@ -68,12 +84,8 @@ func Open(c upstream.Config, a core.Association, capacity int, p Provider) (*Rep
 	digest := sha256.Sum256(binding)
 	r := &Repository{cfg: c, pair: a, capacity: capacity, provider: p, now: time.Now}
 	r.s = state{Version: 1, Binding: hex.EncodeToString(digest[:]), Requests: map[core.KeyID]*request{}, Keys: map[core.KeyID]*key{}}
-	j, raw, err := durable.Open(c.StateDir, "transeuroogs-segmented-ingestion-v1")
-	if err != nil {
-		return nil, err
-	}
 	r.journal = j
-	defer clear(raw)
+	var err error
 	if raw != nil {
 		var s state
 		if json.Unmarshal(raw, &s) != nil || s.Version != 1 || s.Binding != r.s.Binding || s.Requests == nil || s.Keys == nil || s.Attempts < 0 || s.Attempts > capacity {
@@ -111,6 +123,7 @@ func Open(c upstream.Config, a core.Association, capacity int, p Provider) (*Rep
 		r.Close()
 		return nil, err
 	}
+	success = true
 	return r, nil
 }
 

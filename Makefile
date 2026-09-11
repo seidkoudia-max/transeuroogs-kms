@@ -1,7 +1,8 @@
 GO ?= go
 PYTHON ?= python3
+APP_PYTHON ?= python3
 
-.PHONY: check fmt test vet build pki demo relay-demo segmented-demo compose-demo
+.PHONY: check fmt test vet build pki demo relay-demo segmented-demo compose-demo operational-demo app-test
 
 check:
 	$(PYTHON) tests/check_format.py $(GO)
@@ -39,3 +40,9 @@ segmented-demo: build
 compose-demo:
 	docker compose run --build --rm pki
 	docker compose up --build --abort-on-container-exit --exit-code-from sae kms sae
+
+app-test:
+	$(APP_PYTHON) -m unittest discover -s src/application -p 'test_*.py'
+
+operational-demo:
+	$(APP_PYTHON) tests/operational_acceptance.py --go $(GO)

@@ -10,6 +10,8 @@ import (
 
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/peering"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/postgres"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/security"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/upstream"
 )
 
@@ -22,6 +24,14 @@ type Config struct {
 	LocalSAEs    []string           `json:"local_saes,omitempty"`
 	TargetKMEs   map[string]string  `json:"target_kmes,omitempty"`
 	Eagle        *upstream.Config   `json:"eagle,omitempty"`
+	Operational  *Operational       `json:"operational,omitempty"`
+}
+
+type Operational struct {
+	Database         postgres.Config `json:"database"`
+	CRLFiles         []string        `json:"crl_files"`
+	UpstreamCRLFiles []string        `json:"upstream_crl_files,omitempty"`
+	Limits           security.Limits `json:"limits"`
 }
 
 func Load(path string) (Config, error) {
@@ -43,6 +53,12 @@ func Load(path string) (Config, error) {
 }
 
 func (c Config) Validate() error {
+	if c.Operational != nil {
+		o := c.Operational
+		if o.Database.Validate() != nil || !o.Limits.Valid() || len(o.CRLFiles) == 0 || (c.Eagle != nil && len(o.UpstreamCRLFiles) == 0) {
+			return errors.New("incomplete operational configuration")
+		}
+	}
 	if c.KMEID == "" || c.Capacity < 1 || c.Capacity > 100000 || len(c.Identities) == 0 || len(c.Associations) == 0 {
 		return errors.New("incomplete KMS configuration")
 	}

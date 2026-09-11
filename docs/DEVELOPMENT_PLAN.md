@@ -6,11 +6,11 @@ M0–M7 are engineering stages, not project calendar months or WP4 milestone IDs
 
 | Milestone | Deliverable | Status |
 | --- | --- | --- |
-| M0 | Repository, architecture, requirements, data/security models | Implemented in foundation branch |
-| M1 | Atomic Go core, memory repository, synthetic ingestion | Implemented in foundation branch |
-| M2 | Initial 014 profile, mTLS, two-SAE local lab, CI | Implemented in foundation branch |
-| M3 | Published 020 profile, durable async transfer, trusted relay, distinct-key multipath/failover | Implemented in ETSI 020 branch |
-| M4 | PostgreSQL material/metadata separation, operational PKI, audit/rate-limit hardening | Planned |
+| M0 | Repository, architecture, requirements, data/security models | Merged into main |
+| M1 | Atomic Go core, memory repository, synthetic ingestion | Merged into main |
+| M2 | Initial 014 profile, mTLS, two-SAE local lab, CI | Merged into main |
+| M3 | Published 020 profile, durable async transfer, trusted relay, distinct-key multipath/failover | Merged into main |
+| M4 | PostgreSQL material/metadata separation, operational PKI, audit/rate-limit hardening | Implemented software baseline on operational branch; site PKI, HA/HSM and deployment acceptance remain |
 | M5a | Upstream EAGLE-1 014 client, durable paired ingestion and two-site service emulator with delayed offline relay | Implemented segmented synthetic profile; partner validation pending |
 | M5b | SES deployment profile and external interoperability validation | Needs profile and partner test access; gateway authorisation is confirmed |
 | M6 | LU/GR demonstration, then DE and IE deployments of the same KMS/adapter | Planned |
@@ -51,3 +51,23 @@ management must be metadata-only and respect pinned transfer ownership.
 The [WP4 planning discussion](https://chatgpt.com/share/6aa41edc-19c4-83eb-83a7-1b2608413d5a)
 provides the wider project milestone context; the engineering stages above do
 not replace its schedule.
+
+## Operational and application increment
+
+The foundation, 020 and segmented PRs (#1–#3) were reviewed and merged into
+`main` on 2026-09-11. The next branch adds PostgreSQL snapshots across all three
+repository modes, separate metadata/secret schemas, external wrapping-key
+generations, checkpoint-based rejection of database rollback, operational CRLs,
+CSR/credential validation, durable request auditing and identity rate limits.
+See [OPERATIONS](OPERATIONS.md) for deployment and recovery boundaries.
+
+A reference consuming application now supplies authenticated KID notification,
+peer identity validation and standard TLS 1.3 PSK key confirmation, with durable
+replay prevention. [APPLICATION_INTEGRATION](APPLICATION_INTEGRATION.md) documents
+its library callback and remaining integration with a chosen business application.
+This does not modify the SES-owned middle segment.
+
+Acceptance adds `make app-test` and `make operational-demo` to the existing checks.
+The latter creates a real isolated PostgreSQL cluster and runs two national KMS
+processes, a synthetic provider and independent application processes. This
+software increment does not complete real deployment milestone M6 or certify M5b.

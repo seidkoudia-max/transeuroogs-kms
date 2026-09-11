@@ -42,3 +42,20 @@ exercise trust separation, and its SIGKILL scenarios verify national journal
 recovery. Provider restart and production application authentication are outside
 this demo. The harness supplies KID notification and compares synthetic bytes
 internally; it prints no key material. A passing result is not SES validation.
+
+## Operational acceptance
+
+`make operational-demo APP_PYTHON=python3.14` requires installed PostgreSQL binaries
+and creates its own private Unix-socket cluster. Real database tests are skipped
+in `make check` unless `KMS_TEST_DSN` is set; the dedicated CI operational job
+runs them explicitly and also runs the application tests and process demo.
+
+| Requirements | Test groups |
+| --- | --- |
+| OPS-002, OPS-003 | `TestPostgresLifecycleIsolationRestartAndFencing`, `TestPostgresRejectsDatabaseRollback`, `TestPostgresLostConnectionFailsClosed`, `TestRuntimeAndObserverDatabasePrivileges` |
+| OPS-004 | `TestKeyRotationAndBinding`, operational process demo |
+| SEC-005 | `TestRevocationExpiryAndIssuer`, `TestCSRAndCredentialValidation` |
+| SEC-006 | `TestGuardAuditBeforeResponseRateLimitAndLiveCRL` |
+| APP-001 | `emulator/operational/demo.py` |
+| APP-002 | native OpenSSL success, wrong-key and wrong-identity tests in `src/application/test_session.py` |
+| APP-003 | concurrent notification, restart/expiry and association tests in `src/application/test_session.py` |

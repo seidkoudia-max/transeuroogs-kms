@@ -1,6 +1,6 @@
 FROM golang:1.27.1-alpine3.24 AS build
 WORKDIR /src
-COPY go.mod ./
+COPY go.mod go.sum ./
 COPY src ./src
 RUN CGO_ENABLED=0 go build -trimpath -o /out/kms ./src/cmd/kms && \
     CGO_ENABLED=0 go build -trimpath -o /out/test-pki ./src/cmd/test-pki && \

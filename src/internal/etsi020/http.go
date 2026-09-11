@@ -243,14 +243,20 @@ func NewClient(cfg peering.Config, tlsConfig *tls.Config) (*Client, error) {
 		tc := tlsConfig.Clone()
 		tc.MinVersion = tls.VersionTLS13
 		tc.NextProtos = []string{"http/1.1"}
+		previous := tc.VerifyConnection
 		tc.VerifyConnection = func(cs tls.ConnectionState) error {
+			if previous != nil {
+				if err := previous(cs); err != nil {
+					return err
+				}
+			}
 			if len(cs.VerifiedChains) == 0 || len(cs.PeerCertificates) == 0 || len(cs.PeerCertificates[0].URIs) != 1 || cs.PeerCertificates[0].URIs[0].String() != p.Identity {
 				return core.ErrUnauthorized
 			}
 			return nil
 		}
 		c.peers[id] = p
-		c.clients[id] = &http.Client{Timeout: 2 * time.Second, Transport: &http.Transport{TLSClientConfig: tc, MaxIdleConnsPerHost: 2}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+		c.clients[id] = &http.Client{Timeout: 2 * time.Second, Transport: &http.Transport{TLSClientConfig: tc, MaxIdleConnsPerHost: 2, DisableKeepAlives: previous != nil}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	}
 	return c, nil
 }

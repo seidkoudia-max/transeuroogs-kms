@@ -71,3 +71,18 @@ establishment. There is no secondary terrestrial relay on import.
 Capacity counts attempted slots, including unknown-ID master failures. Retention
 is local; common absolute expiry and cross-site revocation remain unsupported.
 See [EAGLE1_INTEGRATION](EAGLE1_INTEGRATION.md) for the service contract and limits.
+
+## PostgreSQL and application metadata
+
+The optional PostgreSQL backend persists each repository's complete lifecycle
+snapshot as authenticated ciphertext. `kms_meta.state` exposes only allowlisted
+IDs, associations, states and timestamps. `kms_secret.state` contains the encrypted
+snapshot; an observer role cannot access it. Generation/version, public metadata
+and a separately persisted checkpoint bind each committed state. Audit intent/
+result and transition records contain no key bytes or arbitrary request bodies.
+
+The reference application's SQLite ledger stores session ID, unique KID when
+known, expiry, and uncertain/confirmed state. It commits before key retrieval;
+unknown-ID allocation attempts remain terminal. Keys exist only in transient
+application/TLS memory. See [OPERATIONS](OPERATIONS.md) and
+[APPLICATION_INTEGRATION](APPLICATION_INTEGRATION.md).

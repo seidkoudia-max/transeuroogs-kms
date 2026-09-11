@@ -57,3 +57,22 @@ our emulator models that contract without verifying SES internals. Application
 KID notification is supplied by the harness, and application-to-application
 authentication/key confirmation remains the consuming protocol's responsibility.
 SDN interfaces must carry metadata only. See [EAGLE1_INTEGRATION](EAGLE1_INTEGRATION.md) for the implemented lab boundary.
+
+## Operational increment
+
+The optional PostgreSQL profile adds persistent state for all repository modes,
+metadata/secret schema separation, restricted append-only audit grants, external
+wrapping-key generations, single-writer fencing and a separate write-ahead
+checkpoint. The checkpoint rejects database-only rollback; it cannot detect a
+privileged rollback of both database and checkpoint. The file key ring does not
+protect against host compromise. CRLs are enforced on operational connections
+and requests; enrollment and renewal use the site's CA and controlled restarts.
+Per-identity token buckets and bounded concurrent work limit admitted traffic.
+Responses are withheld until result auditing succeeds.
+
+The reference application adds authenticated KID notification and OpenSSL TLS 1.3
+PSK key confirmation, preserving the trusted-provider boundary. See
+[OPERATIONS](OPERATIONS.md) and [APPLICATION_INTEGRATION](APPLICATION_INTEGRATION.md)
+for implemented controls, tests, and remaining HSM/HA, immutable audit export,
+site PKI and partner acceptance. Earlier laboratory limitations still apply when
+the operational profile is not selected.

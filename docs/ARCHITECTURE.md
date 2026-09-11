@@ -21,8 +21,8 @@ SAE-LU / SAE-GR laboratory clients
 
 The service is one Go binary with modular packages. `src/internal/core` has no
 HTTP, TLS, database, or orchestration dependencies. The HTTP adapter translates
-wire models and errors; the repository owns atomic lifecycle operations. A
-future database implementation must provide the same transaction semantics.
+wire models and errors; the repository owns atomic lifecycle operations. The
+optional PostgreSQL implementation preserves the same transaction semantics.
 
 The local laboratory uses one KMS with two authorized SAE identities. Each key
 has two delivery records, one for the master and one for the slave. This is a
@@ -103,3 +103,19 @@ independent AES-GCM journal per node and preserves terminal records. Its local
 wrapping key is laboratory protection, without host-compromise or rollback
 resistance. See [ETSI020_PROFILE](ETSI020_PROFILE.md) for the implemented
 six-node topology and durability boundaries.
+
+## Operational persistence and consuming application
+
+The optional `operational` configuration supplies a `durable.Store` to the local,
+segmented or relay repository. PostgreSQL stores a transactionally consistent
+encrypted snapshot, an allowlist of public metadata and append-only audit events.
+Lifecycle logic remains in its repository; no protocol handler issues SQL. A
+separate checkpoint fences old database restores. Only one writer serves each
+namespace; deployment HA must preserve committed state and checkpoint ownership.
+
+The standalone reference SAE supplies the application's authenticated KID
+notification over mTLS, followed by OpenSSL TLS 1.3 PSK key confirmation within
+that stream. It contacts only its own KMS for key material. Its metadata ledger
+never stores key bytes. This application channel does not introduce KMS-to-KMS
+control traffic into the segmented baseline. See [OPERATIONS](OPERATIONS.md) and
+[APPLICATION_INTEGRATION](APPLICATION_INTEGRATION.md).
