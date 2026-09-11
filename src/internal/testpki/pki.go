@@ -44,6 +44,13 @@ func Generate(now time.Time) (PKI, error) {
 	if err != nil {
 		return PKI{}, err
 	}
+	// CreateCertificate generates the CA SubjectKeyId in the encoded certificate,
+	// not in the template. Use the parsed CA as issuer so each leaf receives an
+	// AuthorityKeyId, as required by strict X.509 validators.
+	ca, err = x509.ParseCertificate(der)
+	if err != nil {
+		return PKI{}, err
+	}
 	out := PKI{CA: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), Certificates: map[string]Certificate{}}
 	for _, name := range []string{"kms", "sae-lu", "sae-gr", "unknown-sae"} {
 		lp, lk, err := ed25519.GenerateKey(rand.Reader)

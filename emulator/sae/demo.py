@@ -18,6 +18,8 @@ import uuid
 def context(pki, identity):
     ctx = ssl.create_default_context(cafile=str(pki / "ca.crt.pem"))
     ctx.minimum_version = ssl.TLSVersion.TLSv1_3
+    # Match modern Python defaults on older supported Python installations too.
+    ctx.verify_flags |= ssl.VERIFY_X509_STRICT
     if identity:
         ctx.load_cert_chain(pki / f"{identity}.crt.pem", pki / f"{identity}.key.pem")
     return ctx
@@ -57,6 +59,8 @@ def exercise(base, pki, count, wait):
             status, inventory = call(base, master, "GET", "/api/v1/keys/SAE-GR/status")
             require(status == 200, "Status request failed")
             break
+        except ssl.SSLCertVerificationError as exc:
+            raise RuntimeError(f"Certificate validation failed: {exc.verify_message}") from None
         except (OSError, http.client.HTTPException):
             if time.monotonic() >= deadline:
                 raise RuntimeError("KMS did not become ready") from None
@@ -142,5 +146,6 @@ if __name__ == "__main__":
     try:
         main()
     except (RuntimeError, OSError, ValueError, KeyError, http.client.HTTPException) as exc:
-        print(f"Laboratory failed ({type(exc).__name__}); no key data displayed.", file=sys.stderr)
+        detail = str(exc) if isinstance(exc, RuntimeError) else type(exc).__name__
+        print(f"Laboratory failed: {detail}. No key data displayed.", file=sys.stderr)
         sys.exit(1)
