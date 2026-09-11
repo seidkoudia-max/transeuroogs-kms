@@ -1,6 +1,6 @@
 # ETSI 014 laboratory profile
 
-Baseline: [ETSI GS QKD 014 V1.1.1 (2019-02)](https://www.etsi.org/deliver/etsi_gs/QKD/001_099/014/01.01.01_60/gs_QKD014v010101p.pdf),
+Baseline: [ETSI GS QKD 014 V1.1.1 (2019-02)](https://www.etsi.org/deliver/etsi_gs/QKD/001_099/014/01.01.01_60/gs_qkd014v010101p.pdf),
 clauses 5–6. This implementation is a restricted prototype pending independent
 conformance testing.
 
@@ -35,3 +35,8 @@ top-level parameters are rejected to keep this profile unambiguous.
 Limitations: no multicast, variable sizes, vendor extensions, remote key
 establishment, persistent recovery or external interoperability evidence.
 The same-node demonstration does not establish end-to-end QCI security.
+
+This document describes our application-facing server. The segmented EAGLE-1
+adapter adds an upstream client and durable local ingestion, specified in
+[EAGLE1_INTEGRATION](EAGLE1_INTEGRATION.md). The limits above are our laboratory
+choices and must not be attributed to the SES deployment without its profile.

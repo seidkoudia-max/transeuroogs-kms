@@ -39,3 +39,21 @@ both files together; deleting established state fails startup. A full loss of
 the entire directory cannot be distinguished from fresh laboratory provisioning.
 Intermediate nodes are trusted with clear key material; the lab relay is mTLS,
 without QKD link-key consumption, OTP wrapping or information-theoretic claims.
+
+## EAGLE-1 deployment boundary
+
+The project owner confirms an authorised gateway in a trusted node shared by
+the SES-provided/certified receiver and terrestrial QCI end node. This is the
+deployment trust baseline; the receiver's certification does not certify our
+software. Keep upstream gateway credentials and downstream application rights
+separate, even within that node. The SES certificate and identity profile remains
+to be supplied; our test PKI is not evidence of that profile.
+
+Satellite offline relay is owned by the EAGLE-1 service. The segmented adapter
+accepts final service keys, preserves paired-key provenance and isolates
+uncertain consuming requests. Local application and provider credential sets are
+separate. The central provider is trusted for OGS authentication and paired keys;
+our emulator models that contract without verifying SES internals. Application
+KID notification is supplied by the harness, and application-to-application
+authentication/key confirmation remains the consuming protocol's responsibility.
+SDN interfaces must carry metadata only. See [EAGLE1_INTEGRATION](EAGLE1_INTEGRATION.md) for the implemented lab boundary.

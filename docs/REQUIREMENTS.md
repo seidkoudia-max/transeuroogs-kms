@@ -33,3 +33,26 @@ IDs below describe project behavior; they are not ETSI clause identifiers.
 See [tests/README](../tests/README.md) for the test map. New features require
 positive and negative test cases. Independent 020 conformance, operational
 security/HA and real EAGLE-1 interoperability are not established by this table.
+
+## Segmented EAGLE-1 laboratory requirements
+
+These implement the selected trusted-segment model using a synthetic provider.
+They do not establish actual SES interoperability. See
+[EAGLE1_INTEGRATION](EAGLE1_INTEGRATION.md).
+
+| ID | Required behaviour | Verification |
+| --- | --- | --- |
+| EAGLE-001 | Collect final keys as a locally authenticated upstream 014 gateway; keep the local application delivery role separate | `make segmented-demo`, 014 client TLS/profile tests |
+| EAGLE-002 | Preserve provider KIDs with durable gateway/application binding and no duplicate terrestrial relay | Segmented demo, collision and restart tests |
+| EAGLE-003 | Honour the provider's final-key availability, with satellite relay treated as a black box | Delayed service demo and replenishment model test |
+| EAGLE-004 | Preserve ambiguous collection outcomes, local expiry and single delivery across failures | Lost-response, interrupted intent, crash, replay and expiry tests |
+| EAGLE-005 | Configure upstream identities, trust, role and local retention; reject unknown profiles and conflicting modes | Configuration tests and independent-CA demo |
+| EAGLE-006 | Use one adapter implementation with independently configured national endpoints | LU/GR segmented demo; DE/IE deployment validation pending |
+| EAGLE-007 | Restrict each profile to one local/upstream pair and preserve per-association master/slave roles | Configuration, repository role and local identity tests |
+| MGMT-001 | Provide an SDN-facing metadata abstraction independent of key-plane operation; expose no key material | Planned; management interface not implemented |
+
+Application notification of the selected KID is supplied by the harness. The
+production application's notification, peer authentication and key-confirmation
+protocol still needs integration; segmented KMS authentication does not implement
+that application protocol. The central segment's OGS authentication and key
+pairing are assumed provider responsibilities for these tests.

@@ -26,6 +26,8 @@ jobs:
         run: make demo
       - name: Verify separate KMS processes, relay, multipath, failover and restart
         run: make relay-demo
+      - name: Verify three-segment ingestion, independent CAs, KID preservation and restart
+        run: make segmented-demo
   compose:
     runs-on: ubuntu-latest
     timeout-minutes: 15
