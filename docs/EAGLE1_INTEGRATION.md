@@ -160,3 +160,13 @@ not established by these tests. No production application protocol is implemente
 Terrestrial 020 interworking and hop-by-hop/multipath remain separate laboratory
 capabilities. An SDN-facing metadata abstraction is still planned. An external
 SDN controller is not needed for this segmented retrieval flow.
+
+## Operational and application increment
+
+The `operational` profile can now persist national ingestion state in PostgreSQL
+with separate metadata/material access, checkpoints, CRL enforcement, audit and
+rate limits. The new reference application supplies authenticated KID notification
+and TLS 1.3 PSK confirmation over an application channel; the original segmented
+demo remains a smaller harness. Neither change implements or certifies the
+SES-owned central segment. See [OPERATIONS](OPERATIONS.md) and
+[APPLICATION_INTEGRATION](APPLICATION_INTEGRATION.md) for the current boundaries.

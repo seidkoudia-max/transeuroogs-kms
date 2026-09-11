@@ -24,6 +24,7 @@ func (c Certificate) TLS() (tls.Certificate, error) { return tls.X509KeyPair(c.C
 
 type PKI struct {
 	CA           []byte
+	CRL          []byte
 	Certificates map[string]Certificate
 }
 
@@ -35,7 +36,9 @@ func serial() *big.Int {
 	return n.Add(n, big.NewInt(1))
 }
 
-func Generate(now time.Time) (PKI, error) {
+func Generate(now time.Time) (PKI, error) { return GenerateRevoked(now, nil) }
+
+func GenerateRevoked(now time.Time, revokedNames []string) (PKI, error) {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return PKI{}, err
@@ -53,6 +56,7 @@ func Generate(now time.Time) (PKI, error) {
 		return PKI{}, err
 	}
 	out := PKI{CA: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), Certificates: map[string]Certificate{}}
+	var revoked []x509.RevocationListEntry
 	for _, name := range []string{"kms", "sae-lu", "sae-gr", "unknown-sae", "lu", "eagle-lu", "relay-a", "relay-b", "eagle-gr", "gr"} {
 		lp, lk, err := ed25519.GenerateKey(rand.Reader)
 		if err != nil {
@@ -74,6 +78,11 @@ func Generate(now time.Time) (PKI, error) {
 			leaf.IPAddresses = []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}
 			leaf.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
 		}
+		for _, revokedName := range revokedNames {
+			if revokedName == name {
+				revoked = append(revoked, x509.RevocationListEntry{SerialNumber: leaf.SerialNumber, RevocationTime: now.Add(-time.Minute)})
+			}
+		}
 		ld, err := x509.CreateCertificate(rand.Reader, leaf, ca, lp, priv)
 		if err != nil {
 			return PKI{}, err
@@ -86,7 +95,12 @@ func Generate(now time.Time) (PKI, error) {
 		clear(lk)
 		clear(key)
 	}
+	crl, err := x509.CreateRevocationList(rand.Reader, &x509.RevocationList{Number: serial(), ThisUpdate: now.Add(-time.Minute), NextUpdate: now.Add(12 * time.Hour), RevokedCertificateEntries: revoked}, ca, priv)
 	clear(priv)
+	if err != nil {
+		return PKI{}, err
+	}
+	out.CRL = pem.EncodeToMemory(&pem.Block{Type: "X509 CRL", Bytes: crl})
 	return out, nil
 }
 
@@ -98,6 +112,9 @@ func (p PKI) Write(dir string) error {
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(dir, "ca.crt.pem"), p.CA, 0600); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(dir, "ca.crl.pem"), p.CRL, 0600); err != nil {
 		return err
 	}
 	for name, c := range p.Certificates {

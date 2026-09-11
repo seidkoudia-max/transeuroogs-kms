@@ -9,8 +9,8 @@ durable inter-KMS transfer, and trusted hop-by-hop relay with distinct-key
 multipath routing and pre-transfer failover.
 
 This is a laboratory prototype. The relay links use classical mTLS with
-synthetic keys; real QKD link protection, EAGLE-1 integration, production
-hardening and independent standards conformance remain future work.
+synthetic keys. Real QKD link protection, SES interoperability, site deployment
+acceptance and independent standards conformance remain outstanding.
 
 The agreed EAGLE-1 target is an authorised gateway inside each local trusted node,
 collecting keys through the SES ground service's published ETSI 014 interface.
@@ -20,7 +20,9 @@ for the confirmed responsibilities and outstanding deployment profile.
 
 ## Run the laboratory
 
-Requires Go 1.27+ and Python 3.10+. The Go service has no third-party dependencies.
+Requires Go 1.27+ and Python 3.10+ for the original demos. PostgreSQL uses the
+pinned pgx driver. The operational/application acceptance suite additionally
+requires PostgreSQL binaries and Python 3.13+ with OpenSSL PSK support.
 
 ```sh
 make check
@@ -47,6 +49,16 @@ services, three independent test CAs, role isolation, delayed availability and
 restart replay rejection. The slave retrieves matching keys while the master
 KMS is stopped. The harness supplies application KID notification; it does not
 implement an application authentication protocol or SES satellite cryptography.
+
+`make operational-demo APP_PYTHON=python3.14` creates an isolated PostgreSQL
+cluster, verifies operational storage/recovery controls and runs authenticated
+application KID notification and TLS 1.3 key confirmation through two national
+KMS processes. `make app-test APP_PYTHON=python3.14` runs the application tests.
+See [operations](docs/OPERATIONS.md) and [application integration](docs/APPLICATION_INTEGRATION.md).
+The operational profile supports separate metadata/material access, external
+wrapping-key rotation, CRLs, audit records and rate limits. Site PKI issuance,
+HSM/HA deployment validation and integration with a chosen business application
+remain explicit operational inputs.
 
 To leave a local ETSI 014 server running for experiments:
 
@@ -81,7 +93,10 @@ The KMS is not published on a host port. `down -v` removes that lab volume.
 ## Repository
 
 - `src/internal/core/`: domain types and repository contract.
-- `src/internal/storage/`: atomic memory implementation.
+- `src/internal/storage/`: atomic memory and persistent repository implementations.
+- `src/internal/postgres/`: transactional snapshots, metadata isolation, audit and rollback checkpoints.
+- `src/internal/wrapping/`: external file-ring encryption and protector interface.
+- `src/application/`: authenticated notification and standard TLS PSK reference SAE.
 - `src/internal/etsi014/`: application HTTP adapter and wire models.
 - `src/internal/etsi020/`: asynchronous peer protocol, strict validation and mTLS client.
 - `src/internal/relay/`: durable transfer lifecycle and outbox.

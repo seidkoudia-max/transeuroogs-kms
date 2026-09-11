@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/durable"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/etsi020"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/peering"
 )
@@ -75,7 +76,22 @@ type Engine struct {
 }
 
 func Open(cfg peering.Config, associations []core.Association, capacity int, tr etsi020.Transport) (*Engine, error) {
-	if cfg.Validate() != nil || capacity < 1 || capacity > 100000 || tr == nil {
+	j, raw, err := openJournal(cfg.StateDir)
+	if err != nil {
+		return nil, err
+	}
+	return OpenStore(cfg, associations, capacity, tr, j.Store, raw)
+}
+
+func OpenStore(cfg peering.Config, associations []core.Association, capacity int, tr etsi020.Transport, store durable.Store, raw []byte) (*Engine, error) {
+	defer clear(raw)
+	success := false
+	defer func() {
+		if !success && store != nil {
+			store.Close()
+		}
+	}()
+	if cfg.Validate() != nil || capacity < 1 || capacity > 100000 || tr == nil || store == nil {
 		return nil, core.ErrInvalid
 	}
 	// Own configuration and extension buffers; callers cannot change active policy.
@@ -96,12 +112,9 @@ func Open(cfg peering.Config, associations []core.Association, capacity int, tr 
 		}
 		e.allowed[a] = true
 	}
-	j, raw, err := openJournal(cfg.StateDir)
-	if err != nil {
-		return nil, err
-	}
+	j := &journal{store}
 	e.j = j
-	defer clear(raw)
+	var err error
 	e.s = state{Version: 1, Binding: binding, Keys: map[core.KeyID]*record{}, Cursor: map[string]int{}, Acks: map[core.KeyID]ackJob{}}
 	if raw != nil {
 		if json.Unmarshal(raw, &e.s) != nil || e.s.Version != 1 || e.s.Binding != binding || e.s.Keys == nil || e.s.Acks == nil || e.s.Cursor == nil {
@@ -113,6 +126,7 @@ func Open(cfg peering.Config, associations []core.Association, capacity int, tr 
 		j.close()
 		return nil, err
 	}
+	success = true
 	return e, nil
 }
 func (e *Engine) Close() {

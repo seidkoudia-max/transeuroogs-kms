@@ -35,13 +35,19 @@ func NewClient(c upstream.Config, tc *tls.Config) (*Client, error) {
 	secure := tc.Clone()
 	secure.MinVersion = tls.VersionTLS13
 	secure.NextProtos = []string{"http/1.1"}
+	previous := secure.VerifyConnection
 	secure.VerifyConnection = func(cs tls.ConnectionState) error {
+		if previous != nil {
+			if err := previous(cs); err != nil {
+				return err
+			}
+		}
 		if len(cs.VerifiedChains) == 0 || len(cs.PeerCertificates) == 0 || len(cs.PeerCertificates[0].URIs) != 1 || cs.PeerCertificates[0].URIs[0].String() != c.ServerIdentity {
 			return core.ErrUnauthorized
 		}
 		return nil
 	}
-	return &Client{cfg: c, http: &http.Client{Timeout: 2 * time.Second, Transport: &http.Transport{TLSClientConfig: secure, MaxIdleConnsPerHost: 1}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
+	return &Client{cfg: c, http: &http.Client{Timeout: 2 * time.Second, Transport: &http.Transport{TLSClientConfig: secure, MaxIdleConnsPerHost: 1, DisableKeepAlives: previous != nil}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
 }
 
 func (c *Client) Close() { c.http.CloseIdleConnections() }

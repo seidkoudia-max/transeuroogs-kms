@@ -52,7 +52,25 @@ They do not establish actual SES interoperability. See
 | MGMT-001 | Provide an SDN-facing metadata abstraction independent of key-plane operation; expose no key material | Planned; management interface not implemented |
 
 Application notification of the selected KID is supplied by the harness. The
-production application's notification, peer authentication and key-confirmation
-protocol still needs integration; segmented KMS authentication does not implement
+reference application now supplies notification, peer authentication and TLS
+key confirmation in the operational increment; segmented KMS authentication does not implement
 that application protocol. The central segment's OGS authentication and key
 pairing are assumed provider responsibilities for these tests.
+
+## Operational and consuming-application software
+
+| ID | Required behaviour | Verification |
+| --- | --- | --- |
+| OPS-002 | Commit encrypted PostgreSQL snapshots with separately readable metadata and restricted audit access | Real PostgreSQL lifecycle/privilege tests |
+| OPS-003 | Fence competing writers, reject database rollback and fail closed on uncertain persistence | PostgreSQL restart, rollback and connection-loss tests |
+| OPS-004 | Manage wrapping-key generations outside the database and retain decryptability across rotation | Key-ring tests and operational demo |
+| SEC-005 | Require current signed issuer CRLs and validate issued credentials/CSR identities | Operational security and enrollment tests |
+| SEC-006 | Bound per-identity traffic and concurrent work; commit audit before key response | Guard fault and rate-limit tests |
+| APP-001 | Authenticate application peers and notify the selected unchanged KID over mTLS | Operational separate-process demo |
+| APP-002 | Use standard TLS key confirmation, rejecting mismatched material or session identity | Native OpenSSL PSK tests |
+| APP-003 | Bind identities, ordered pair, KID and expiry; reject replay after restart/concurrency | Application ledger and notification tests |
+
+The reference application implements these APP requirements. Integration with
+a specific operational encryptor/business application uses its confirmed-stream
+callback and still needs that application's deployment profile. See
+[OPERATIONS](OPERATIONS.md) and [APPLICATION_INTEGRATION](APPLICATION_INTEGRATION.md).

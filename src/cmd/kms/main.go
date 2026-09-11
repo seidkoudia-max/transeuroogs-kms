@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -23,6 +25,7 @@ import (
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/etsi020"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/ingest"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/peering"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/postgres"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/relay"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/security"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/storage"
@@ -44,6 +47,8 @@ func run() error {
 	labSummary := flag.Bool("lab-summary", false, "emit material-free network laboratory summary on shutdown")
 	count := flag.Int("synthetic-keys", 0, "opt-in synthetic keys for the first configured association")
 	ttl := flag.Duration("synthetic-ttl", time.Hour, "synthetic key lifetime")
+	initialize := flag.Bool("initialize-state", false, "explicitly provision a fresh operational state namespace")
+	migrate := flag.Bool("migrate-database", false, "apply database schema with a separate migration credential and exit")
 	flag.Parse()
 	c, err := config.Load(*configPath)
 	if err != nil {
@@ -57,6 +62,43 @@ func run() error {
 		return err
 	}
 	var repo core.Repository = memory
+	var pg *postgres.Store
+	var recovered []byte
+	if *migrate {
+		if c.Operational == nil {
+			return fmt.Errorf("operational configuration required")
+		}
+		return postgres.Migrate(c.Operational.Database)
+	}
+	if *initialize && c.Operational == nil {
+		return fmt.Errorf("operational configuration required")
+	}
+	if c.Operational != nil {
+		pg, recovered, err = postgres.Open(c.Operational.Database, *initialize)
+		if err != nil {
+			return err
+		}
+		defer pg.Close()
+		defer clear(recovered)
+		if *count > 0 && recovered != nil {
+			return fmt.Errorf("synthetic provisioning requires a fresh operational namespace")
+		}
+		if c.Eagle == nil && c.InterKMS == nil {
+			binding, _ := json.Marshal(struct {
+				KME        string
+				Pairs      []core.Association
+				Identities map[string]string
+				Local      []string
+			}{c.KMEID, c.Associations, c.Identities, c.LocalSAEs})
+			hash := sha256.Sum256(binding)
+			persistent, e := storage.OpenPersistent(c.Capacity, hex.EncodeToString(hash[:]), pg, recovered)
+			if e != nil {
+				return e
+			}
+			defer persistent.Close()
+			repo = persistent
+		}
+	}
 	var engine *relay.Engine
 	var ingestion *ingest.Repository
 	if c.Eagle != nil {
@@ -76,12 +118,20 @@ func run() error {
 		if !roots.AppendCertsFromPEM(ca) {
 			return fmt.Errorf("invalid upstream CA")
 		}
-		client, e := etsi014.NewClient(*u, &tls.Config{RootCAs: roots, Certificates: []tls.Certificate{cert}})
+		tc := &tls.Config{RootCAs: roots, Certificates: []tls.Certificate{cert}}
+		if c.Operational != nil {
+			security.RequireCRLs(tc, c.Operational.UpstreamCRLFiles)
+		}
+		client, e := etsi014.NewClient(*u, tc)
 		if e != nil {
 			return e
 		}
 		defer client.Close()
-		ingestion, e = ingest.Open(*u, c.Associations[0], c.Capacity, client)
+		if pg != nil {
+			ingestion, e = ingest.OpenStore(*u, c.Associations[0], c.Capacity, client, pg, recovered)
+		} else {
+			ingestion, e = ingest.Open(*u, c.Associations[0], c.Capacity, client)
+		}
 		if e != nil {
 			return e
 		}
@@ -105,12 +155,20 @@ func run() error {
 		if !roots.AppendCertsFromPEM(ca) {
 			return fmt.Errorf("invalid peer CA")
 		}
-		client, e := etsi020.NewClient(*c.InterKMS, &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: roots, Certificates: []tls.Certificate{cert}})
+		tc := &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: roots, Certificates: []tls.Certificate{cert}}
+		if c.Operational != nil {
+			security.RequireCRLs(tc, c.Operational.CRLFiles)
+		}
+		client, e := etsi020.NewClient(*c.InterKMS, tc)
 		if e != nil {
 			return e
 		}
 		defer client.Close()
-		engine, e = relay.Open(*c.InterKMS, c.Associations, c.Capacity, client)
+		if pg != nil {
+			engine, e = relay.OpenStore(*c.InterKMS, c.Associations, c.Capacity, client, pg, recovered)
+		} else {
+			engine, e = relay.Open(*c.InterKMS, c.Associations, c.Capacity, client)
+		}
 		if e != nil {
 			return e
 		}
@@ -141,9 +199,27 @@ func run() error {
 		mux.Handle("/lab/", etsi020.Handler(engine, *c.InterKMS, peering.LabRelay))
 		handler = mux
 	}
+	if c.Operational != nil {
+		ids := []string{}
+		for id := range c.Identities {
+			ids = append(ids, id)
+		}
+		if c.InterKMS != nil {
+			for _, peer := range c.InterKMS.Peers {
+				ids = append(ids, peer.Identity)
+			}
+		}
+		handler, err = security.Guard(handler, ids, c.Operational.Limits, c.Operational.CRLFiles, pg)
+		if err != nil {
+			return err
+		}
+	}
 	tlsConfig, err := security.ServerTLS(filepath.Join(*pki, "ca.crt.pem"))
 	if err != nil {
 		return err
+	}
+	if c.Operational != nil {
+		security.RequireCRLs(tlsConfig, c.Operational.CRLFiles)
 	}
 	server := &http.Server{Handler: handler, TLSConfig: tlsConfig, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 * 1024}
 	// Validate the certificate before reporting readiness.

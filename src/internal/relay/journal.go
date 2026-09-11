@@ -2,7 +2,7 @@ package relay
 
 import "github.com/seidkoudia-max/transeuroogs-kms/src/internal/durable"
 
-type journal struct{ *durable.Journal }
+type journal struct{ durable.Store }
 
 var errJournal = durable.ErrState
 
