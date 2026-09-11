@@ -50,3 +50,24 @@ without retaining key material. Unknown void IDs receive terminal tombstones.
 Repeated input must match the original binding and cannot reset delivery or
 expiry. Snapshots commit before network side effects and SAE responses.
 Read [ETSI020_PROFILE](ETSI020_PROFILE.md) for recovery and failover rules.
+
+## Segmented upstream ingestion
+
+`ingest.Repository` provides a separate durable implementation of `core.Repository`.
+Its journal binds the upstream URL/identity, gateway SAE pair, local application
+pair, role and capacity. Key IDs are preserved unchanged, with one configured
+application pair per gateway pair. Other key formats and ID translation remain
+unsupported rather than silently transformed.
+
+Request records retain intent, attempted count, IDs when known, start/expiry and
+pending/stored/consumed/uncertain outcome. Key records retain local state and
+material only for unconsumed master reservations. Slave retrieval commits
+consumption directly before returning bytes. The opposite endpoint's rights are
+not represented as locally deliverable copies. Pending requests on restart
+become uncertain; known IDs remain invalid and cannot be retried. Each national
+endpoint maintains its own recipient state, trusting the provider for paired-key
+establishment. There is no secondary terrestrial relay on import.
+
+Capacity counts attempted slots, including unknown-ID master failures. Retention
+is local; common absolute expiry and cross-site revocation remain unsupported.
+See [EAGLE1_INTEGRATION](EAGLE1_INTEGRATION.md) for the service contract and limits.

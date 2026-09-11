@@ -30,7 +30,14 @@ func New(repo core.Repository, c config.Config) (http.Handler, error) {
 		return nil, core.ErrInvalid
 	}
 	s := &Server{repo: repo, kme: c.KMEID, identities: map[string]string{}, allowed: map[core.Association]bool{}}
+	s.targetKMEs = map[string]string{}
+	for sae, kme := range c.TargetKMEs {
+		s.targetKMEs[sae] = kme
+	}
 	for uri, id := range c.Identities {
+		if len(c.LocalSAEs) > 0 && !slices.Contains(c.LocalSAEs, id) {
+			continue
+		}
 		if c.InterKMS != nil && !slices.Contains(c.InterKMS.LocalSAEs, id) {
 			continue
 		}
@@ -41,6 +48,9 @@ func New(repo core.Repository, c config.Config) (http.Handler, error) {
 		for sae, kme := range c.InterKMS.TargetKMEs {
 			s.targetKMEs[sae] = kme
 		}
+	}
+	if c.Eagle != nil && c.Eagle.Role == "master" {
+		s.targetKMEs = map[string]string{c.Associations[0].Slave: c.Eagle.RemoteKMEID}
 	}
 	for _, a := range c.Associations {
 		s.allowed[a] = true

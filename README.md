@@ -12,6 +12,12 @@ This is a laboratory prototype. The relay links use classical mTLS with
 synthetic keys; real QKD link protection, EAGLE-1 integration, production
 hardening and independent standards conformance remain future work.
 
+The agreed EAGLE-1 target is an authorised gateway inside each local trusted node,
+collecting keys through the SES ground service's published ETSI 014 interface.
+The satellite owns offline relay. A synthetic upstream client, durable ingestion and
+black-box service emulator are implemented; see [EAGLE-1 integration](docs/EAGLE1_INTEGRATION.md)
+for the confirmed responsibilities and outstanding deployment profile.
+
 ## Run the laboratory
 
 Requires Go 1.27+ and Python 3.10+. The Go service has no third-party dependencies.
@@ -20,6 +26,7 @@ Requires Go 1.27+ and Python 3.10+. The Go service has no third-party dependenci
 make check
 make demo
 make relay-demo
+make segmented-demo
 ```
 
 `make demo` generates a temporary development PKI under `.local/pki/`, starts a
@@ -34,6 +41,12 @@ recover after SIGKILL before delivery and restart after consumption to verify
 persistence and replay protection.
 See [the 020 profile](docs/ETSI020_PROFILE.md) for topology and failure semantics.
 Static routing works without an SDN controller.
+
+`make segmented-demo` verifies 64 matching keys through two local upstream 014
+services, three independent test CAs, role isolation, delayed availability and
+restart replay rejection. The slave retrieves matching keys while the master
+KMS is stopped. The harness supplies application KID notification; it does not
+implement an application authentication protocol or SES satellite cryptography.
 
 To leave a local ETSI 014 server running for experiments:
 
@@ -71,7 +84,11 @@ The KMS is not published on a host port. `down -v` removes that lab volume.
 - `src/internal/storage/`: atomic memory implementation.
 - `src/internal/etsi014/`: application HTTP adapter and wire models.
 - `src/internal/etsi020/`: asynchronous peer protocol, strict validation and mTLS client.
-- `src/internal/relay/`: durable transfer lifecycle, encrypted journal and outbox.
+- `src/internal/relay/`: durable transfer lifecycle and outbox.
+- `src/internal/ingest/`: segmented upstream ingestion and local delivery journal.
+- `src/internal/upstream/`: explicit upstream profile and role configuration.
+- `src/internal/durable/`: shared encrypted single-writer laboratory snapshots.
+- `src/internal/eaglelab/`: delayed paired-service outcome model.
 - `src/internal/peering/`: configured peer identities, transport modes and routes.
 - `src/internal/security/`: verified certificate identity and TLS configuration.
 - `src/cmd/`: KMS binary and test-PKI generator.

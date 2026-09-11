@@ -114,6 +114,11 @@ control remain future work. Do not provision real QKD material.
 
 `make relay-demo` runs independently configured binaries over real TLS:
 
+The EAGLE names below are synthetic interworking fixtures. The actual integration
+target is the SES ground service's published 014 interface, with satellite-owned
+offline relay; see [EAGLE1_INTEGRATION](EAGLE1_INTEGRATION.md). This diagram does
+not describe the SES service or satisfy the segmented upstream 014 milestone.
+
 ```text
 SAE-LU --014-- LU --020-- EAGLE-LU
                               |--lab relay-- relay-a --lab relay--|
@@ -127,7 +132,8 @@ role isolation, ready-state recovery after SIGKILL and consumed-key replay rejec
 restarts. Fault-injected Go tests cover lost responses/ACKs, uncertain transfer
 pinning, void propagation, expiry, conflict atomicity and concurrent delivery.
 
-An SDN controller is **not required for these static paths**. A future controller
+An SDN controller is **not required for these static paths**. An SDN-facing
+metadata abstraction remains a project requirement. A future controller
 can use topology, link capacity and key-pool metadata to choose routes and
 perform admission control. It must not receive key bytes. Live policy changes,
 QKD link-key consumption/OTP relay, dynamic topology, and actual EAGLE-1

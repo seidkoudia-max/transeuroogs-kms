@@ -21,6 +21,7 @@ import (
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/etsi014"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/etsi020"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/ingest"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/peering"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/relay"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/security"
@@ -57,6 +58,36 @@ func run() error {
 	}
 	var repo core.Repository = memory
 	var engine *relay.Engine
+	var ingestion *ingest.Repository
+	if c.Eagle != nil {
+		if *count != 0 {
+			return fmt.Errorf("segmented mode accepts keys only from the configured synthetic upstream service")
+		}
+		u := c.Eagle
+		cert, e := tls.LoadX509KeyPair(filepath.Join(u.PKIDir, u.CertificateName+".crt.pem"), filepath.Join(u.PKIDir, u.CertificateName+".key.pem"))
+		if e != nil {
+			return e
+		}
+		ca, e := os.ReadFile(filepath.Join(u.PKIDir, "ca.crt.pem"))
+		if e != nil {
+			return e
+		}
+		roots := x509.NewCertPool()
+		if !roots.AppendCertsFromPEM(ca) {
+			return fmt.Errorf("invalid upstream CA")
+		}
+		client, e := etsi014.NewClient(*u, &tls.Config{RootCAs: roots, Certificates: []tls.Certificate{cert}})
+		if e != nil {
+			return e
+		}
+		defer client.Close()
+		ingestion, e = ingest.Open(*u, c.Associations[0], c.Capacity, client)
+		if e != nil {
+			return e
+		}
+		defer ingestion.Close()
+		repo = ingestion
+	}
 	if c.InterKMS != nil {
 		cert, e := tls.LoadX509KeyPair(filepath.Join(*pki, *certName+".crt.pem"), filepath.Join(*pki, *certName+".key.pem"))
 		if e != nil {
@@ -127,6 +158,12 @@ func run() error {
 	defer listener.Close()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if ingestion != nil {
+		workerCtx, cancel := context.WithCancel(ctx)
+		finished := make(chan struct{})
+		go func() { defer close(finished); ingestion.Run(workerCtx) }()
+		defer func() { cancel(); <-finished }()
+	}
 	if engine != nil {
 		workerCtx, cancel := context.WithCancel(ctx)
 		finished := make(chan struct{})

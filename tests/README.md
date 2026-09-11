@@ -22,6 +22,10 @@ and Python SAE harness over real mTLS, with no HTTP mocks.
 | NET-003, LAB-003 | `TestMultipathEndToEndAndRestart`, `emulator/network/demo.py` |
 | NET-005 | `TestVoidPropagationLateAckUnknownAndConsumed`, `TestExpiryAndConcurrentSingleDelivery`, `TestOptionalExtensionsPreservedAndOwned` |
 | NET-006 | `TestJournalLockCorruptionMissingStateAndFailClosed` |
+| EAGLE-001, EAGLE-005 | `TestUpstreamClientTLSProfileAndNoRetry`, `TestSegmentedProfileRoleAndIdentityValidation`, segmented demo with three independent CAs |
+| EAGLE-002, EAGLE-006, EAGLE-007 | `TestMasterReservationDurabilityAndRoleIsolation`, `TestSlaveAtomicReplayAndRestart`, `TestBindingLockAndProviderCollision`, segmented demo |
+| EAGLE-003 | `TestOfflineCompletionAndReplenishment`, segmented demo delayed inventory |
+| EAGLE-004 | `TestUncertainSlaveDeliveryNeverRetriesAcrossRestart`, `TestExpiryCapacityAndFailedCommit`, `TestUpstreamMalformedBatchAndLostResponse` |
 | OPS-001 | `.github/workflows/ci.yml` |
 
 These are project acceptance tests, not independently certified ETSI conformance
@@ -31,3 +35,10 @@ fault campaigns and production recovery validation remain future work.
 `make relay-demo` verifies separate KMS processes, real TLS and encrypted state.
 The fault-injected Go network tests complement it with controlled lost responses,
 lost ACKs, partitions and delayed operations. They do not simulate QKD physics.
+
+`make segmented-demo` verifies local upstream 014 ingestion with a separate
+synthetic provider process and two national KMS processes. Its three test CAs
+exercise trust separation, and its SIGKILL scenarios verify national journal
+recovery. Provider restart and production application authentication are outside
+this demo. The harness supplies KID notification and compares synthetic bytes
+internally; it prints no key material. A passing result is not SES validation.

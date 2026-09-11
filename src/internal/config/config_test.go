@@ -1,6 +1,10 @@
 package config
 
 import (
+	"encoding/json"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/peering"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/upstream"
 	"os"
 	"path/filepath"
 	"testing"
@@ -28,6 +32,39 @@ func TestConfigurationValidation(t *testing.T) {
 			_, err := Load(path)
 			if (err == nil) != tc.valid {
 				t.Fatalf("valid=%v, error=%v", tc.valid, err)
+			}
+		})
+	}
+}
+
+func TestSegmentedProfileRoleAndIdentityValidation(t *testing.T) {
+	base := Config{KMEID: "LU", Capacity: 10, Identities: map[string]string{"urn:app:lu": "A", "urn:app:gr": "B"}, LocalSAEs: []string{"A"}, Associations: []core.Association{{Master: "A", Slave: "B"}}, Eagle: &upstream.Config{Profile: upstream.Profile, URL: "https://localhost:8443", ServerIdentity: "urn:ses:lu", GatewayIdentity: "urn:gw:lu", GatewayMaster: "GW-A", GatewaySlave: "GW-B", Role: "master", RemoteKMEID: "GR", StateDir: "state", PKIDir: "pki", CertificateName: "lu", LifetimeSeconds: 60}}
+	for _, tc := range []struct {
+		name   string
+		valid  bool
+		change func(*Config)
+	}{
+		{"master", true, func(*Config) {}},
+		{"slave", true, func(c *Config) { c.Eagle.Role = "slave"; c.LocalSAEs = []string{"B"} }},
+		{"wrong local role", false, func(c *Config) { c.LocalSAEs = []string{"B"} }},
+		{"both local identities", false, func(c *Config) { c.LocalSAEs = []string{"A", "B"} }},
+		{"no local identity", false, func(c *Config) { c.LocalSAEs = nil }},
+		{"unknown profile", false, func(c *Config) { c.Eagle.Profile = "ses-production" }},
+		{"plaintext", false, func(c *Config) { c.Eagle.URL = "http://localhost:8443" }},
+		{"no role", false, func(c *Config) { c.Eagle.Role = "" }},
+		{"same gateway", false, func(c *Config) { c.Eagle.GatewaySlave = c.Eagle.GatewayMaster }},
+		{"missing expiry", false, func(c *Config) { c.Eagle.LifetimeSeconds = 0 }},
+		{"credential traversal", false, func(c *Config) { c.Eagle.CertificateName = "../lu" }},
+		{"mixed relay", false, func(c *Config) { c.InterKMS = &peering.Config{} }},
+		{"multiple downstream pairs", false, func(c *Config) { c.Associations = append(c.Associations, core.Association{Master: "B", Slave: "A"}) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			data, _ := json.Marshal(base)
+			var c Config
+			_ = json.Unmarshal(data, &c)
+			tc.change(&c)
+			if (c.Validate() == nil) != tc.valid {
+				t.Fatal("unexpected profile validation outcome")
 			}
 		})
 	}

@@ -1,6 +1,6 @@
 # Architecture
 
-Status: initial implementation baseline, 2026-09-11.
+Status: implemented laboratory and agreed EAGLE-1 integration target, 2026-09-11.
 
 The [shared design](https://chatgpt.com/share/6aa4058f-4374-83ed-b1ff-e6af5d5267f9)
 calls for a standalone interoperable KMS before EAGLE-1 and SDN integration.
@@ -32,21 +32,44 @@ pool-to-association assignment is deferred.
 
 ## Interworking architecture
 
+The project owner confirmed that our gateway is authorised and the SES-provided,
+SES-certified receiver and terrestrial QCI end node share a trusted environment.
+The satellite performs point-to-point distribution followed by offline relay.
+We deploy the same national KMS software in LU, GR, DE and IE.
+
+The target integration uses the SES ground service's published I/F G, ETSI 014:
+
 ```text
-SAE-LU --014--> LU KMS --020--> EAGLE-LU
-                                  |
-                          EAGLE-1 domain
-                                  |
-SAE-GR --014--> GR KMS --020--> EAGLE-GR
+SES ground key service LU <--014 client-- adapter -- LU KMS --014--> SAE-LU
+           |
+ EAGLE-1 satellite service: separate contacts, offline relay
+           |
+SES ground key service GR <--014 client-- adapter -- GR KMS --014--> SAE-GR
 ```
 
-Germany and Ireland follow the same adapter pattern. ETSI 020 belongs at the
-local interworking node. It is not a replacement for the satellite domain's
-internal key establishment. Consult [ETSI020_PROFILE](ETSI020_PROFILE.md).
+The segmented synthetic profile now implements these local 014 client boundaries
+and durable delivery. EAGLE-1 is treated as a black box responsible for OGS
+authentication, point-to-point establishment, offline satellite relay and paired
+keys/IDs. This is the agreed service contract; the lab does not verify SES internals.
 
-An EAGLE-1 adapter will use the same KMS core. Actual peer identities, endpoint
-profiles, certificate policy, timeout behavior, and interoperability test
-vectors must be supplied before connecting to the real service.
+Master/slave are per-association retrieval roles. The configured master gateway
+uses `enc_keys`; its corresponding slave gateway uses `dec_keys` by the same KID.
+Our national KMS serves local applications through its separate 014 server. The
+application workflow carries the selected KID to the other application; no
+inter-country KMS control connection is required for this baseline. Local mTLS
+and provider trust do not replace the consuming application's security protocol.
+
+ETSI 020 remains a local trusted-site KMS interworking option where both peers
+support it. The `make relay-demo` EAGLE-named processes remain generic synthetic
+020 stand-ins. `make segmented-demo` instead exercises the published SES 014
+boundary with independent local and provider trust stores. Terrestrial relay and
+multipath are separate from the satellite service's internal implementation.
+
+The same adapter serves each national deployment with an explicit local role,
+upstream identity/pair and private journal. Only the synthetic profile is enabled;
+real service identities, credentials, limits and lifecycle behaviour still need
+the deployment profile. See [EAGLE1_INTEGRATION](EAGLE1_INTEGRATION.md) for the
+implemented boundaries, failure semantics and acceptance evidence.
 
 ## Trust boundaries
 
@@ -58,6 +81,9 @@ vectors must be supplied before connecting to the real service.
 4. Test provisioning is an in-process startup operation, not a public API.
 5. Any future controller receives inventory, associations, alarms and commands
    only. There is no raw-key management endpoint.
+6. The SES receiver's certification is an external component property, not
+   certification of this KMS. Co-location preserves authenticated service
+   boundaries and separate upstream gateway/downstream application identities.
 
 ## Failure semantics
 

@@ -6,9 +6,11 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"slices"
 
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/peering"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/upstream"
 )
 
 type Config struct {
@@ -17,6 +19,9 @@ type Config struct {
 	Identities   map[string]string  `json:"identities"`
 	Associations []core.Association `json:"associations"`
 	InterKMS     *peering.Config    `json:"inter_kms,omitempty"`
+	LocalSAEs    []string           `json:"local_saes,omitempty"`
+	TargetKMEs   map[string]string  `json:"target_kmes,omitempty"`
+	Eagle        *upstream.Config   `json:"eagle,omitempty"`
 }
 
 func Load(path string) (Config, error) {
@@ -57,6 +62,9 @@ func (c Config) Validate() error {
 		seen[a] = true
 	}
 	if c.InterKMS != nil {
+		if c.Eagle != nil || len(c.LocalSAEs) != 0 {
+			return errors.New("conflicting repository or local identity configuration")
+		}
 		if err := c.InterKMS.Validate(); err != nil {
 			return err
 		}
@@ -75,6 +83,29 @@ func (c Config) Validate() error {
 			if !localTarget && (len(c.InterKMS.Routes[a.Slave]) == 0 || c.InterKMS.TargetKMEs[a.Slave] == "") {
 				return errors.New("missing target KME or route")
 			}
+		}
+	}
+	for i, id := range c.LocalSAEs {
+		if !saes[id] || slices.Contains(c.LocalSAEs[:i], id) {
+			return errors.New("invalid local SAE")
+		}
+	}
+	for sae, kme := range c.TargetKMEs {
+		if !saes[sae] || kme == "" {
+			return errors.New("invalid target KME identity")
+		}
+	}
+	if c.Eagle != nil {
+		if c.Eagle.Validate() != nil || len(c.Associations) != 1 || len(c.LocalSAEs) != 1 {
+			return errors.New("invalid segmented service profile")
+		}
+		a := c.Associations[0]
+		local := a.Master
+		if c.Eagle.Role == "slave" {
+			local = a.Slave
+		}
+		if c.LocalSAEs[0] != local {
+			return errors.New("local SAE conflicts with association role")
 		}
 	}
 	return nil

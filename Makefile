@@ -1,7 +1,7 @@
 GO ?= go
 PYTHON ?= python3
 
-.PHONY: check fmt test vet build pki demo relay-demo compose-demo
+.PHONY: check fmt test vet build pki demo relay-demo segmented-demo compose-demo
 
 check:
 	$(PYTHON) tests/check_format.py $(GO)
@@ -30,6 +30,11 @@ demo: build pki
 
 relay-demo: build pki
 	$(PYTHON) emulator/network/demo.py --binary .local/bin/kms --pki .local/pki
+
+segmented-demo: build
+	$(GO) build -trimpath -o .local/bin/eagle-emulator ./src/cmd/eagle-emulator
+	$(GO) build -trimpath -o .local/bin/test-pki ./src/cmd/test-pki
+	$(PYTHON) emulator/eagle1-kms/demo.py --binary .local/bin/kms --emulator .local/bin/eagle-emulator --pki-binary .local/bin/test-pki
 
 compose-demo:
 	docker compose run --build --rm pki

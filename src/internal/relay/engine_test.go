@@ -391,7 +391,9 @@ func TestJournalLockCorruptionMissingStateAndFailClosed(t *testing.T) {
 	seed(t, n.nodes["lu"], 1)
 	n.pump(4)
 	e := n.nodes["lu"]
-	e.j.dir = filepath.Join(t.TempDir(), "missing")
+	if err := os.Rename(e.cfg.StateDir, e.cfg.StateDir+"-away"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := e.ReserveKeys(association, 1); err == nil {
 		t.Fatal("disk failure accepted")
 	}
