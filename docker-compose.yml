@@ -1,0 +1,45 @@
+services:
+  pki:
+    profiles: [tools]
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+      target: kms
+    entrypoint: ["/bin/test-pki"]
+    command: ["--out", "/pki"]
+    volumes:
+      - test-pki:/pki
+    network_mode: none
+  kms:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+      target: kms
+    command: ["--listen", "0.0.0.0:8443", "--pki-dir", "/pki", "--synthetic-keys", "1000"]
+    volumes:
+      - test-pki:/pki:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [lab]
+  sae:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+      target: sae
+    command: ["--url", "https://kms:8443", "--pki", "/pki", "--count", "1000", "--wait", "30"]
+    depends_on:
+      kms:
+        condition: service_started
+    volumes:
+      - test-pki:/pki:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [lab]
+
+volumes:
+  test-pki:
+networks:
+  lab:
+    internal: true

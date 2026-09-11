@@ -1,0 +1,11 @@
+{
+  "kme_id": "LU-KMS",
+  "capacity": 10000,
+  "identities": {
+    "urn:transeuroogs:sae:sae-lu": "SAE-LU",
+    "urn:transeuroogs:sae:sae-gr": "SAE-GR"
+  },
+  "associations": [
+    {"master": "SAE-LU", "slave": "SAE-GR"}
+  ]
+}
