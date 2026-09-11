@@ -17,7 +17,17 @@ and Python SAE harness over real mTLS, with no HTTP mocks.
 | SEC-003 | redaction tests; demo outputs no key bytes |
 | LAB-001 | `TestSyntheticSource`, configuration tests, explicit CLI flag |
 | LAB-002 | `emulator/sae/demo.py` |
+| NET-001 | `TestWireValidationAndAuthorization`, `TestRealMTLSIdentityPinningAndNoRedirect`, `TestPinnedUpstreamContract` |
+| NET-002, NET-004 | `TestLostAcknowledgementOutboxSurvivesRestart`, `TestPreflightFailoverAndUncertainTransferPinned`, `TestAtomicConflictDuplicateAndPartialAcknowledgements` |
+| NET-003, LAB-003 | `TestMultipathEndToEndAndRestart`, `emulator/network/demo.py` |
+| NET-005 | `TestVoidPropagationLateAckUnknownAndConsumed`, `TestExpiryAndConcurrentSingleDelivery`, `TestOptionalExtensionsPreservedAndOwned` |
+| NET-006 | `TestJournalLockCorruptionMissingStateAndFailClosed` |
 | OPS-001 | `.github/workflows/ci.yml` |
 
 These are project acceptance tests, not independently certified ETSI conformance
-tests. Full 020/interoperability and production recovery suites remain planned.
+tests. Independent 020 conformance, partner interoperability, power-loss/filesystem
+fault campaigns and production recovery validation remain future work.
+
+`make relay-demo` verifies separate KMS processes, real TLS and encrypted state.
+The fault-injected Go network tests complement it with controlled lost responses,
+lost ACKs, partitions and delayed operations. They do not simulate QKD physics.

@@ -21,8 +21,15 @@ IDs below describe project behavior; they are not ETSI clause identifiers.
 | SEC-004 | Bound memory lifetime capacity, requests and HTTP timeouts | storage/HTTP tests, configuration |
 | LAB-001 | Generate synthetic material only when explicitly enabled | source/CLI tests and demo |
 | LAB-002 | Verify 1,000 unique matching deliveries and denied replay | `make demo` |
+| NET-001 | Async 020 versions, transfer, ACK, void and strict bounded wire profile | 020 HTTP/TLS tests |
+| NET-002 | Commit transfer/consumption before side effects; persist tombstones and ACK outbox | relay recovery tests |
+| NET-003 | Match remote SAE keys across trusted hops; distribute distinct IDs over routes | network demo and relay tests |
+| NET-004 | Fail over only before first send; pin uncertain transfers across restarts | fault-injected relay tests |
+| NET-005 | Cascade void/expiry, reject revival and preserve optional extension values | relay tests |
+| NET-006 | Encrypt local state; exclusive writer; fail closed on corruption or write failure | journal tests |
+| LAB-003 | Independent TLS processes, both relay paths, outage and restart | `make relay-demo` |
 | OPS-001 | Run format, vet, race tests, build and demo in CI | GitHub Actions |
 
 See [tests/README](../tests/README.md) for the test map. New features require
-positive and negative test cases. Durable storage, cross-KMS recovery, 020
-conformance and real EAGLE-1 interoperability are not satisfied by this table.
+positive and negative test cases. Independent 020 conformance, operational
+security/HA and real EAGLE-1 interoperability are not established by this table.

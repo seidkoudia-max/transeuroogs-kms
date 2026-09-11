@@ -1,14 +1,14 @@
 # Data model
 
 The baseline stores opaque 256-bit values. It does not split, combine, derive,
-relay or transform keys. IDs are canonical lowercase UUIDv4 strings generated
+or transform keys. Network mode forwards unchanged keys across trusted relays. IDs are canonical lowercase UUIDv4 strings generated
 from `crypto/rand`; duplicate IDs are rejected even after consumption.
 
 `Key` contains ID, material, source label, ordered master/slave SAE pair,
 creation time and expiry. Input byte slices are copied on ingestion. Material
 is excluded from generic JSON and string formatting. `Metadata` has no bytes.
 
-Each stored ID has two independent delivery records:
+In the original local memory fixture, each stored ID has two independent delivery records:
 
 | Recipient | Initial state | Delivery transition |
 | --- | --- | --- |
@@ -22,7 +22,7 @@ recipient. No API returns a consumed delivery to AVAILABLE.
 Any unconsumed delivery becomes EXPIRED at `now >= expires_at`. Invalidation
 moves unconsumed deliveries to INVALID. Both operations discard the relevant
 material. CONSUMED, INVALID and EXPIRED stay terminal. Identity tombstones
-remain for the process lifetime. A new source record cannot overwrite one.
+remain for the memory process lifetime, or durably in network mode. A new source record cannot overwrite one.
 
 `Reservation` contains an opaque UUID token and IDs. The repository retains
 the ordered association and exact batch behind the token; a caller cannot
@@ -36,5 +36,17 @@ dependence in demonstrations.
 
 Persistence contract: StoreKey, ReserveKeys, ConsumeReservation, ConsumePeerKeys,
 InvalidateKey, Metadata, Inventory. Transaction atomicity belongs to the
-repository implementation. Transfer states and durable peer transaction IDs
-are reserved for the ETSI 020 milestone, not emulated by local consumption.
+repository implementation.
+
+The network repository adds source/relay/target roles, the immutable ID/pair/
+material-extension digest, incoming peer, candidate routes, selected peer,
+persisted send intent, readiness, per-local-recipient consumption, expiry and
+void propagation. `relayed` ACKs travel from the target back to the origin;
+only then may the origin reserve its local delivery. Relay nodes clear material
+after downstream acknowledgement. No intermediate has an SAE delivery role.
+
+Persistent ACK jobs are separate from key records so results can be retried
+without retaining key material. Unknown void IDs receive terminal tombstones.
+Repeated input must match the original binding and cannot reset delivery or
+expiry. Snapshots commit before network side effects and SAE responses.
+Read [ETSI020_PROFILE](ETSI020_PROFILE.md) for recovery and failover rules.

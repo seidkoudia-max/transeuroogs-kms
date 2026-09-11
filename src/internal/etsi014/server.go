@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/config"
@@ -18,6 +19,7 @@ type Server struct {
 	kme        string
 	identities map[string]string
 	allowed    map[core.Association]bool
+	targetKMEs map[string]string
 }
 
 func New(repo core.Repository, c config.Config) (http.Handler, error) {
@@ -29,7 +31,16 @@ func New(repo core.Repository, c config.Config) (http.Handler, error) {
 	}
 	s := &Server{repo: repo, kme: c.KMEID, identities: map[string]string{}, allowed: map[core.Association]bool{}}
 	for uri, id := range c.Identities {
+		if c.InterKMS != nil && !slices.Contains(c.InterKMS.LocalSAEs, id) {
+			continue
+		}
 		s.identities[uri] = id
+	}
+	if c.InterKMS != nil {
+		s.targetKMEs = make(map[string]string)
+		for sae, kme := range c.InterKMS.TargetKMEs {
+			s.targetKMEs[sae] = kme
+		}
 	}
 	for _, a := range c.Associations {
 		s.allowed[a] = true
@@ -84,7 +95,11 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	i := s.repo.Inventory(a)
-	write(w, 200, Status{SourceKMEID: s.kme, TargetKMEID: s.kme, MasterSAEID: a.Master, SlaveSAEID: a.Slave, KeySize: core.KeyBits, StoredKeyCount: i.Available, MaxKeyCount: i.Capacity, MaxKeyPerRequest: core.MaxBatch, MaxKeySize: core.KeyBits, MinKeySize: core.KeyBits})
+	target := s.kme
+	if id := s.targetKMEs[a.Slave]; id != "" {
+		target = id
+	}
+	write(w, 200, Status{SourceKMEID: s.kme, TargetKMEID: target, MasterSAEID: a.Master, SlaveSAEID: a.Slave, KeySize: core.KeyBits, StoredKeyCount: i.Available, MaxKeyCount: i.Capacity, MaxKeyPerRequest: core.MaxBatch, MaxKeySize: core.KeyBits, MinKeySize: core.KeyBits})
 }
 
 func (s *Server) enc(w http.ResponseWriter, r *http.Request) {

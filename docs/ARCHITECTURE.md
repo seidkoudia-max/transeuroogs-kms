@@ -4,7 +4,8 @@ Status: initial implementation baseline, 2026-09-11.
 
 The [shared design](https://chatgpt.com/share/6aa4058f-4374-83ed-b1ff-e6af5d5267f9)
 calls for a standalone interoperable KMS before EAGLE-1 and SDN integration.
-This baseline implements its first runnable application-facing slice.
+The service now includes local application delivery and a separate durable
+network repository implementing the asynchronous 020 laboratory profile.
 
 ```text
 SAE-LU / SAE-GR laboratory clients
@@ -29,7 +30,7 @@ test fixture for application delivery, not a transport across QCI domains.
 Synthetic ingestion binds a key to an ordered SAE pair in advance; dynamic
 pool-to-association assignment is deferred.
 
-## Target interworking architecture
+## Interworking architecture
 
 ```text
 SAE-LU --014--> LU KMS --020--> EAGLE-LU
@@ -64,9 +65,15 @@ Reserve a complete batch atomically. Consume a complete reservation before
 serializing its response. A failed/lost response does not restore a key. A
 reservation interrupted before consumption remains reserved until expiry or
 explicit invalidation. This sacrifices availability to prevent unintended
-reuse. Durable transactions, acknowledgement recovery and crash-safe
-tombstones are required before using persistent or external sources.
+reuse. Network mode adds durable transactions, acknowledgement recovery and
+crash-safe tombstones through `relay.Engine`, implementing the same core
+repository contract. `etsi020` translates the peer wire protocol; `peering`
+holds static policy independently of a controller.
 
 Memory clearing is best effort; Go and TLS/JSON buffering do not guarantee
 physical erasure. The repository has a hard lifetime capacity including
-tombstones. Restarting clears all state and is safe only for this synthetic lab.
+tombstones. The memory fixture clears state on restart. Network mode uses an
+independent AES-GCM journal per node and preserves terminal records. Its local
+wrapping key is laboratory protection, without host-compromise or rollback
+resistance. See [ETSI020_PROFILE](ETSI020_PROFILE.md) for the implemented
+six-node topology and durability boundaries.

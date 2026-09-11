@@ -24,6 +24,8 @@ jobs:
         run: make check
       - name: Verify 1000 synthetic keys over mutual TLS
         run: make demo
+      - name: Verify separate KMS processes, relay, multipath, failover and restart
+        run: make relay-demo
   compose:
     runs-on: ubuntu-latest
     timeout-minutes: 15

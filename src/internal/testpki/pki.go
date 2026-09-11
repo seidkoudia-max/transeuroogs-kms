@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -52,7 +53,7 @@ func Generate(now time.Time) (PKI, error) {
 		return PKI{}, err
 	}
 	out := PKI{CA: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), Certificates: map[string]Certificate{}}
-	for _, name := range []string{"kms", "sae-lu", "sae-gr", "unknown-sae"} {
+	for _, name := range []string{"kms", "sae-lu", "sae-gr", "unknown-sae", "lu", "eagle-lu", "relay-a", "relay-b", "eagle-gr", "gr"} {
 		lp, lk, err := ed25519.GenerateKey(rand.Reader)
 		if err != nil {
 			return PKI{}, err
@@ -65,6 +66,13 @@ func Generate(now time.Time) (PKI, error) {
 			leaf.DNSNames = []string{"localhost", "kms"}
 			leaf.IPAddresses = []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}
 			leaf.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+		}
+		if name != "kms" && !strings.Contains(name, "sae") {
+			uri, _ = url.Parse("urn:transeuroogs:kme:" + name)
+			leaf.URIs = []*url.URL{uri}
+			leaf.DNSNames = []string{"localhost", name}
+			leaf.IPAddresses = []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}
+			leaf.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
 		}
 		ld, err := x509.CreateCertificate(rand.Reader, leaf, ca, lp, priv)
 		if err != nil {
