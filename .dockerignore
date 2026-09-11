@@ -1,0 +1,9 @@
+.git
+.local
+.env*
+secrets
+data
+logs
+**/*.pem
+**/*.key
+**/__pycache__
