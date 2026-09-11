@@ -4,6 +4,8 @@
 !.env.example
 secrets/
 *.key
+state.enc
+.state-*
 *.pem
 .local/
 data/

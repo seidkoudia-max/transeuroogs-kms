@@ -1,7 +1,7 @@
 GO ?= go
 PYTHON ?= python3
 
-.PHONY: check fmt test vet build pki demo compose-demo
+.PHONY: check fmt test vet build pki demo relay-demo compose-demo
 
 check:
 	$(PYTHON) tests/check_format.py $(GO)
@@ -27,6 +27,9 @@ pki:
 
 demo: build pki
 	$(PYTHON) emulator/sae/demo.py --binary .local/bin/kms --pki .local/pki --count 1000
+
+relay-demo: build pki
+	$(PYTHON) emulator/network/demo.py --binary .local/bin/kms --pki .local/pki
 
 compose-demo:
 	docker compose run --build --rm pki

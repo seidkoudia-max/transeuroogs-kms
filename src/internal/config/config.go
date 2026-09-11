@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/peering"
 )
 
 type Config struct {
@@ -15,6 +16,7 @@ type Config struct {
 	Capacity     int                `json:"capacity"`
 	Identities   map[string]string  `json:"identities"`
 	Associations []core.Association `json:"associations"`
+	InterKMS     *peering.Config    `json:"inter_kms,omitempty"`
 }
 
 func Load(path string) (Config, error) {
@@ -53,6 +55,27 @@ func (c Config) Validate() error {
 			return errors.New("invalid or duplicate association")
 		}
 		seen[a] = true
+	}
+	if c.InterKMS != nil {
+		if err := c.InterKMS.Validate(); err != nil {
+			return err
+		}
+		for _, id := range c.InterKMS.LocalSAEs {
+			if !saes[id] {
+				return errors.New("unknown local SAE")
+			}
+		}
+		for _, a := range c.Associations {
+			localTarget := false
+			for _, id := range c.InterKMS.LocalSAEs {
+				if id == a.Slave {
+					localTarget = true
+				}
+			}
+			if !localTarget && (len(c.InterKMS.Routes[a.Slave]) == 0 || c.InterKMS.TargetKMEs[a.Slave] == "") {
+				return errors.New("missing target KME or route")
+			}
+		}
 	}
 	return nil
 }

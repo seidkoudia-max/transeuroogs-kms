@@ -1,0 +1,1777 @@
+# Copyright 2026 ETSI
+# Licensed under the BSD-3 Clause (https://forge.etsi.org/legal-matters)
+openapi: '3.1.2'
+info:
+  title: ETSI GS QKD 020 - Quantum Key Distribution (QKD); Interoperable Key Management System API
+  contact:
+    name: ETSI ISG QKD
+    email: isgsupport@etsi.org
+  version: 1.1.1
+  license:
+    name: BSD 3-Clause
+    url: https://forge.etsi.org/legal-matters
+  x-logo:
+    url: 'https://www.etsi.org/wp-content/themes/etsi/images/logo-etsi.png'
+    altText: ETSI logo
+  x-etsi:
+    deliv: GS
+    status: Publication
+    num: 020
+    tg: Quantum Key Distribution
+    tga: QKD
+    tg-type: ISG
+    title: Interoperable Key Management System API
+    wi: DGS/QKD-020_InteropKMS
+    keywords: API; protocol; quantum cryptography; Quantum Key Distribution
+
+  description: |
+
+    # Normative references
+
+    [<a id="ref_RFC9110">RFC9110</a>] [IETF RFC 9110: STD 97 (June 2022)](https://www.rfc-editor.org/info/rfc9110): "HTTP Semantics".
+    
+    [<a id="ref_RFC8259">RFC8259</a>] [IETF RFC 8259 (December 2017)](https://www.rfc-editor.org/info/rfc8259): "The JavaScript Object Notation (JSON) Data Interchange Format".
+    
+    [<a id="ref_RFC9112">RFC9112</a>] [IETF RFC 9112: STD 99 (June 2022)](https://www.rfc-editor.org/info/rfc9112): "HTTP/1.1".
+
+    [<a id="ref_RFC8446">RFC8446</a>] [IETF RFC 8446 (August 2018)](https://www.rfc-editor.org/info/rfc8446): "The Transport Layer Security (TLS) Protocol Version 1.3".
+    
+    [<a id="ref_RFC3986">RFC3986</a>] [IETF RFC 3986: STD 66 (January 2005)](https://www.rfc-editor.org/info/rfc3986): "Uniform Resource Identifier (URI): Generic Syntax".
+
+    [<a id="ref_RFC5234">RFC5234</a>] [IETF RFC 5234 (January 2008)](https://www.rfc-editor.org/info/rfc5234): "Augmented BNF for Syntax Specifications: ABNF".
+
+    [<a id="ref_RFC4648">RFC4648</a>] [IETF RFC 4648 (October 2006)](https://www.rfc-editor.org/info/rfc4648): "The Base16, Base32, and Base64 Data Encodings".
+
+    [<a id="ref_RFC9562">RFC9562</a>] [IETF RFC 9562 (May 2024)](https://www.rfc-editor.org/info/rfc9562): "Universally Unique IDentifiers (UUIDs)".
+    
+    [<a id="ref_RFC9457">RFC9457</a>] [IETF RFC 9457 (July 2023)](https://www.rfc-editor.org/info/rfc9457): "Problem Details for HTTP APIs".
+
+    [<a id="ref_OpenAPI">OpenAPI</a>] [OpenAPI Initiative OpenAPI Version 3.1.2 (September 2025)](https://spec.openapis.org/oas/v3.1.2.html): "OpenAPI Specification v3.1.2".
+
+    # Informative references
+    
+    [<a id="ref_GRQKD007">GRQKD007</a>] [ETSI GR QKD 007](https://www.etsi.org/standards-search#search=GR%20QKD%20007&title=0&content=0&version=1): "Quantum Key Distribution (QKD); Vocabulary".
+
+    [<a id="ref_GSQKD014">GSQKD014</a>] [ETSI GS QKD 014](https://www.etsi.org/standards-search#search=GS%20QKD%20014&title=0&content=0&version=1): "Quantum Key Distribution (QKD); Protocol and data format of REST-based key delivery API".
+    
+    [<a id="ref_GSQKD004">GSQKD004</a>] [ETSI GS QKD 004](https://www.etsi.org/standards-search#search=GS%20QKD%20004&title=0&content=0&version=1): "Quantum Key Distribution (QKD); Application Interface".
+
+    # Terms
+
+    For the purposes of the present document, the terms given in ETSI GR QKD 007 [[GRQKD007](#ref_GRQKD007)] 
+    and the following apply:
+    
+    NOTE: A term defined in the present document takes precedence over the definition of 
+    the same term, if any, in ETSI GR QKD 007 [[GRQKD007](#ref_GRQKD007)].
+
+    **interworking node:** node of more than one QKD network that contains key management entities 
+    from each QKD network interworking within the node
+
+    **key management entity:** entity that manages keys in a network in cooperation with one or 
+    more other key management entities
+
+    **secure application entity:** entity that requests one or more keys from a key management entity 
+    for one or more applications running in cooperation with one or more other secure application entities
+
+    # Abbreviations
+
+    <span style="min-width: 5em; display: inline-block">API</span> Application Programming Interface
+
+    <span style="min-width: 5em; display: inline-block">HEXDIG</span> HEXadecimal DIGits
+
+    <span style="min-width: 5em; display: inline-block">HTTP</span> HyperText Transfer Protocol
+
+    <span style="min-width: 5em; display: inline-block">HTTPS</span> HyperText Transfer Protocol Secure
+
+    <span style="min-width: 5em; display: inline-block">IANA</span> Internet Assigned Numbers Authority
+
+    <span style="min-width: 5em; display: inline-block">IETF</span> Internet Engineering Task Force
+
+    <span style="min-width: 5em; display: inline-block">IP</span> Internet Protocol
+
+    <span style="min-width: 5em; display: inline-block">JSON</span> JavaScript Object Notation
+
+    <span style="min-width: 5em; display: inline-block">KME</span> Key Management Entity
+
+    <span style="min-width: 5em; display: inline-block">KMS</span> Key Management System
+
+    <span style="min-width: 5em; display: inline-block">PEN</span> Private Enterprise Number
+
+    <span style="min-width: 5em; display: inline-block">QKD</span> Quantum Key Distribution
+
+    <span style="min-width: 5em; display: inline-block">REST</span> REpresentational State Transfer
+
+    <span style="min-width: 5em; display: inline-block">SAE</span> Secure Application Entity
+
+    <span style="min-width: 5em; display: inline-block">TLS</span> Transport Layer Security
+
+    <span style="min-width: 5em; display: inline-block">URI</span> Uniform Resource Identifier
+
+    <span style="min-width: 5em; display: inline-block">URL</span> Uniform Resource Locator
+
+    <span style="min-width: 5em; display: inline-block">UTF-8</span> UCS Transformation Format 8 bits
+
+    <span style="min-width: 5em; display: inline-block">UUID</span> Universally Unique IDentifier
+
+    # Overview
+
+    Editor's Note: OpenAPI description of the Interoperable Key Management System API 
+    being developed by ETSI ISG QKD under work item DGS/QKD-020_InteropKMS.
+    
+    The present document specifies a communication protocol and data format for 
+    key management entities (KMEs) for use by quantum key distribution (QKD) 
+    networks to exchange keys when located together within a protected 
+    operational environment. Use-cases include where:
+    
+    - KMEs belong to different QKD networks and are located within an 
+    interworking node.
+
+    - KMEs belong to different policy domains of a QKD network.
+    
+    - KMEs are otherwise incompatible, e.g. from different vendors.
+
+    Since use-cases include interworking between different network operators 
+    and policy domains, the information that KMEs are required to exchange 
+    is intentionally limited.
+
+    A REST (REpresentational State Transfer) API is specified as a simple, 
+    scalable, widely deployed approach that is familiar to a large developer 
+    community. The REST-based API specifies the format of the URIs, the 
+    communication protocol "HTTPS" i.e. HTTP with TLS, as well as the data format 
+    and encoding of request and response content, including key material.
+
+    # Operation of the API
+
+    The primary purpose of QKD networks is to deliver shared secure random keys 
+    to authorized cryptographic applications called Secure Application Entities 
+    (SAEs). APIs have been specified in ETSI GS QKD 014 [[GSQKD014](#ref_GSQKD014)] 
+    and ETSI GS QKD 004 [[GSQKD004](#ref_GSQKD004)] for the delivery of keys from 
+    a KME to an SAE.
+    
+    Where there is no direct QKD link between the KMEs from which SAEs are requesting 
+    to share keys, the KMEs within QKD networks typically relay keys. They can 
+    consume QKD keys to help achieve this securely. Different sets of KMEs might 
+    not be fully compatible between sets of KMEs. Sets of KMEs could also be managed 
+    separately, e.g. by different network operators that wish to limit unnecessary 
+    sharing of internal network information.
+    
+    In such cases a standardized interface is required for KMEs to pass keys 
+    horizontally between different sets of KMEs that cannot otherwise interoperate 
+    due to incompatibility or policy etc. The API described in the present document 
+    enables key transfers between KMEs within a secure operational environment. 
+    This can enable shared keys to be delivered to two (or more) SAEs connected 
+    to KMEs in different QKD networks, policy domains etc.
+
+    There are two primary modes of operation for the API methods described in the 
+    present document: asynchronous mode and synchronous mode. In the asynchronous 
+    mode, requests are processed in a non-blocking manner, allowing a KME to accept 
+    a request without undue delay and close the request connection by issuing 
+    a `202`<!-- ~sec__op_p_kmapi_v1_ext_keys__resp__202 --> 
+    ('Request accepted') response. Actual key processing can then be performed in 
+    the background before the KME acknowledges the result of that key processing by 
+    issuing one or more requests back to the KME that made the initial request to 
+    provide details of the outcome. This mode is particularly advantageous in 
+    high-traffic environments, or where request processing can be time consuming. 
+    It avoids blocking the requestor and minimizes the number of simultaneous open 
+    connections between KMEs. As a result, this mode can help achieve scalability 
+    as well as predictable performance under anomalous conditions. An overview 
+    message sequence diagram for the asynchronous mode is provided in 
+    [figure 1](#fig_seq_diag_ov_async).
+
+    ```mermaid
+      ---
+      config:
+        theme: base
+        themeVariables:
+      ---
+      sequenceDiagram
+
+      participant I as KME A
+      participant T as KME B
+
+      I->>T: ext_keys Request with ack_callback_url
+      Note over T: Responds without undue delay<br />(typically not waiting on remote operations)
+      T->>I: 202 Request accepted
+            
+      loop Acknowledgements in one or more request(s)
+        T->>I: ext_keys/ack Request
+        I->>T: 200 Successful OK
+      end
+    ```
+    <!-- h=8cm w=9.33cm -->
+
+    ![Message sequence diagram between KME A and KME B 
+    showing an ext_keys request with ack_callback_url 
+    with a 202 response followed by a loop for 
+    acknowledgements via ext_keys/ack requests with 
+    200 responses.](https://forge.etsi.org/rep/qkd/gs020-interop-kms/-/raw/v1.1.1/figures/seq_diag_ov_async.svg)
+
+    <p style="font-weight: bold; text-align:center" id="fig_seq_diag_ov_async">Figure 1: Overview 
+    message sequence diagram for successful required asynchronous mode</p>
+
+    Conversely, in the synchronous mode the requestor has to wait for all parts of 
+    a request to either complete or fail before responding since all results 
+    are returned within a single response. This mode provides a more straightforward 
+    and direct interaction between KMEs and can be suitable where results can be 
+    returned almost immediately, but it can limit scalability in large or congested 
+    networks. A message sequence diagram for the optional synchronous mode is 
+    provided in [figure 2](#fig_seq_diag_ov_sync).
+
+    ```mermaid
+      ---
+      config:
+        theme: base
+        themeVariables:
+      ---
+      sequenceDiagram
+
+      participant I as KME A
+      participant T as KME B
+
+      I->>T: ext_keys Request without ack_callback_url
+      Note over T: No response until all key requests resolved<br />(check response - can resolve as failed etc.)
+      T->>I: 200 Successful OK
+    ```
+    <!-- h=5.39cm w=10.2cm -->
+
+    ![Message sequence diagram between KME A and KME B showing 
+    an ext_keys request without ack_callback_url with a 200 
+    response.](https://forge.etsi.org/rep/qkd/gs020-interop-kms/-/raw/v1.1.1/figures/seq_diag_ov_sync.svg)
+
+    <p style="font-weight: bold; text-align:center" id="fig_seq_diag_ov_sync">Figure 2: Overview 
+    message sequence diagram for successful optional synchronous mode</p>
+
+    To ensure interoperability, all KMEs shall support the asynchronous mode of 
+    operation for the API methods defined in the present document.
+
+    KMEs may support the synchronous mode of operation as an optional mode in 
+    addition to the required asynchronous mode for specific implementation(s).
+
+    A KME shall not retain an association for any key in a request that arose from 
+    a call it received to `ext_keys`<!-- ~sec__op_p_kmapi_v1_ext_keys --> and for which 
+    it returned either a 
+    `400`<!-- ~sec__op_p_kmapi_v1_ext_keys__resp__400 --> ('Bad request format') or a
+    `401`<!-- ~sec__op_p_kmapi_v1_ext_keys__resp__401 --> ('Unauthorised') response.
+  
+    KMEs shall assume keys could have been associated with the 
+    `initiator_sae_id`<!-- ~sec__sch__initiator_sae_id --> and 
+    `target_sae_id`<!-- ~sec__sch__target_sae_id --> as a result of an
+    `ext_keys`<!-- ~sec__op_p_kmapi_v1_ext_keys --> request unless either a 
+    `400`<!-- ~sec__op_p_kmapi_v1_ext_keys__resp__400 --> ('Bad request format') or 
+    `401`<!-- ~sec__op_p_kmapi_v1_ext_keys__resp__401 --> ('Unauthorised') 
+    response is returned.
+    
+    Unless one of these two responses is successfully received, a KME shall assume 
+    that assignment(s) of the key(s) in the request could potentially have been 
+    created.
+    
+    NOTE: Potential associations could reside within the KME or have been created 
+    by other entities it interacted with. Potential associations could have been 
+    created where a timeout occurs.
+    
+    KMEs should not reassign any key that was in a 
+    `ext_keys`<!-- ~sec__op_p_kmapi_v1_ext_keys --> call without considering the 
+    potential assignments that could have been created.
+
+    NOTE: KMEs will typically not release a key to SAEs until they know that the key 
+    was successfully relayed to all intended 
+    `target_sae_id`<!-- ~sec__sch__target_sae_id -->.
+
+    Where errors or timeouts other than a 
+    `400`<!-- ~sec__op_p_kmapi_v1_ext_keys__resp__400 --> ('Bad request format') or 
+    `401`<!-- ~sec__op_p_kmapi_v1_ext_keys__resp__401 --> ('Unauthorised') 
+    occur in an `ext_keys`<!-- ~sec__op_p_kmapi_v1_ext_keys --> 
+    request, KMEs shall either retry the failed requests for all impacted keys in 
+    subsequent `ext_keys`<!-- ~sec__op_p_kmapi_v1_ext_keys --> requests or void the 
+    impacted keys within their network(s) and by issuing 
+    `ext_keys/void`<!-- ~sec__op_p_kmapi_v1_ext_keys_void --> requests.
+    
+    For `400`<!-- ~sec__op_p_kmapi_v1_ext_keys__resp__400 --> ('Bad request format') or a
+    `401`<!-- ~sec__op_p_kmapi_v1_ext_keys__resp__401 --> ('Unauthorised') response KMEs 
+    may optionally retry the failed requests.
+
+    Where errors or timeouts occur in an `ext_keys/ack`<!-- ~sec__op_p_kmapi_v1_ext_keys_ack --> 
+    request, KMEs shall either retry the failed requests for all impacted keys in 
+    subsequent `ext_keys/ack`<!-- ~sec__op_p_kmapi_v1_ext_keys_ack --> requests or void the 
+    impacted keys within their network(s) and issue
+    `ext_keys/void`<!-- ~sec__op_p_kmapi_v1_ext_keys_void --> requests.
+
+    NOTE: For `ext_keys/ack`<!-- ~sec__op_p_kmapi_v1_ext_keys_ack --> the call 
+    to `ext_keys/void`<!-- ~sec__op_p_kmapi_v1_ext_keys_void --> is issued in the 
+    opposite direction to the KME that issued the 
+    related `ext_keys`<!-- ~sec__op_p_kmapi_v1_ext_keys --> request.
+    
+    More comprehensive sequence diagrams are provided for the required asynchronous mode 
+    in [figure 3](#fig_seq_diag_async) and for the optional synchronous mode 
+    in [figure 4](#fig_seq_diag_sync).
+
+    ```mermaid
+      ---
+      config:
+        theme: base
+        themeVariables:
+      ---
+      sequenceDiagram
+
+      participant I as KME A
+      participant T as KME B
+
+      I->>T: ext_keys Request with ack_callback_url
+
+      alt Response in time - accepted
+        Note over T: Responds without undue delay (typically not waiting on remote operations)
+        T->>I: 202 Request accepted
+      else Response in time - bad request format
+        T->>I: 400 Bad request format
+      else Response in time - unauthorized
+        T->>I: 401 Unauthorized
+      else Response in time - server side error
+        T->>I: 503 Error of server side
+      else Timeout (response by KME B)
+        T->>I: 408 Timeout
+      else Timeout (no response in time)
+        I-->>I: KME A decides to handle as timeout
+      end
+
+      break when timeout or response not 202 accepted
+        alt 400 bad request format or 401 unauthorized
+          Note over I, T: No assignment of keys to be preserved in KME B
+        else Timeout or any other response or timeout
+          I->>I: Either retry ext_keys or ext_keys/void
+        end
+      end
+      
+      loop Acknowledgements in one or more request(s)
+        T->>I: ext_keys/ack Request
+        alt Response in time - successful
+          I->>T: 200 Successful OK
+          Note over I, T: Keys for which ack_staus was 'relayed'<br />in response can be supplied to SAEs
+        else Response in time - bad request format
+          I->>T: 400 Bad request format
+        else Response in time - unauthorized
+          I->>T: 401 Unauthorized
+        else Response in time - server side error
+          I->>T: 503 Error of server side
+        else Timeout (response by KME A)
+          I->>T: 408 Timeout
+        else Timeout (no response in time)
+          T-->>T: KME B decides to handle as timeout
+        end
+
+        alt timeout or response not 200 Successful OK
+          T->>T: Either retry ext_keys/ack or ext_keys/void
+        end
+      end
+
+      alt Missing acknowledgements for some keys in ext_keys request
+        I->>I: Either retry ext_keys or ext_keys/void
+      end
+    ```
+    <!-- h=24.43cm w=8.04cm -->
+
+    ![Message sequence diagram between KME A and KME B showing 
+    an ext_keys request with ack_callback_url. Various responses 
+    are indicated, otherwise KME A decides to handle as timeout. 
+    When timeout or response not 202 KME A either retries ext_keys 
+    or ext_keys/void. A loop of ext_keys/ack acknowledgement 
+    requests from KME B follows. Various responses are indicated, 
+    otherwise KME B decides to handle as timeout. When timeout or 
+    response not 200 KME A either retries ext_keys/ack or 
+    ext_keys/void. Where acknowledgements are missing for some 
+    keys in ext_keys request KME A either retries ext_keys or 
+    ext_keys/void.](https://forge.etsi.org/rep/qkd/gs020-interop-kms/-/raw/v1.1.1/figures/seq_diag_async.svg)
+
+    <p style="font-weight: bold; text-align:center" id="fig_seq_diag_async">Figure 3: Message sequence 
+    diagram for required asynchronous mode</p>
+
+    ```mermaid
+      sequenceDiagram
+
+      participant I as KME A
+      participant T as KME B
+
+      I->>T: ext_keys Request without ack_callback_url
+
+      alt Response in time - success
+        T->>I: 200 Successful OK
+        Note over T: No response until all key requests resolved<br />(check response - can resolve as failed etc.)
+        Note over I, T: Keys for which ack_staus was 'relayed'<br />in response can be supplied to SAEs
+      else Response in time - bad request format
+        T->>I: 400 Bad request format
+        Note over I, T: No assignment of keys preserved in KME B
+      else Response in time - unauthorized
+        T->>I: 401 Unauthorized
+        Note over I, T: No assignment of keys preserved in KME B
+      else Response in time - server side error
+        T->>I: 503 Error of server side
+      else Timeout (response by KME B)
+        T->>I: 408 Timeout
+      else Timeout (no response in time)
+        I-->>I: KME A decides to handle as timeout
+      end
+
+      alt Missing acknowledgements for some keys that were in the ext_keys request
+        I->>I: Either retry ext_keys or ext_keys/void where missing responses
+      end
+    ```
+    <!-- h=13.67cm w=8.31cm -->
+
+    ![Message sequence diagram between KME A and KME B showing an ext_keys 
+    request without ack_callback_url. Various responses are indicated, 
+    otherwise KME A decides to handle as timeout. Where acknowledgements 
+    are missing for some keys in ext_keys request KME A either retries 
+    ext_keys or ext_keys/void.](https://forge.etsi.org/rep/qkd/gs020-interop-kms/-/raw/v1.1.1/figures/seq_diag_sync.svg)
+
+    <p style="font-weight: bold; text-align:center" id="fig_seq_diag_sync">Figure 4: Message sequence 
+    diagram for optional synchronous mode</p>
+
+    # Connection specification and security scheme
+
+    The common connection specifications for the API are shown in [table 1](#tab_connection_specs).
+
+    <p style="font-weight: bold; text-align:center" id="tab_connection_specs">Table 1: Common 
+    connection specifications</p>
+
+    | Name                   | Description                                      |
+    |------------------------|--------------------------------------------------|
+    | Communication Protocol | "HTTPS": HTTP/1.1 and optionally higher versions in addition; TLS v1.3 or higher versions |
+    | Content-Type           | application/json; charset=UTF-8    |
+
+    All communication functions specified in this API shall be implemented using 
+    the HTTP/1.1 protocol as specified in IETF RFC 9110 [[RFC9110](#ref_RFC9110) 
+    and IETF RFC 9112 [RFC9112](#ref_RFC9112)] with Transport Layer Security (TLS).
+
+    NOTE:	This combination is often referred to as an HTTPS protocol.
+    
+    Higher versions of the HTTP protocol may be implemented in addition to HTTP/1.1.
+    
+    TLS v1.3 as specified in IETF RFC 8446 [[RFC8446](#ref_RFC8446)] or higher versions shall be used.
+
+    At the connection establishment, mutual authentication between the KMEs 
+    shall be performed using certificates.
+    
+    Each of the two KMEs shall verify the validity of the certificate of the 
+    other KME and shall confirm its identity from the certificate.
+
+    Where requests and responses include body content these shall be encoded using the 
+    `application/json`.
+
+    NOTE: OpenAPI introduced support for specifying mutual TLS security in 
+    version 3.1. While other parts of this OpenAPI description can be easily 
+    converted to OpenAPI version 3.0 for use with older tools, it would be 
+    necessary to ensure that whatever security is specified in a Security Scheme 
+    Object is manually overridden according to this clause on 
+    [Connection specification and security scheme](#section/Connection-specification-and-security-scheme) 
+    in any implementation.
+
+    # Security and operational environment
+
+    This API is for use between KMEs that are both located within the same site 
+    (an interworking node when used between two QKD networks). The KMEs and the 
+    communications the present document specifies between them should remain within 
+    a secure operational environment. Appropriate security measures should be 
+    considered for the operational environment.
+
+    General security requirements for key processing and management are outside the 
+    scope of the present document.
+
+    # Extensions
+    
+    Some methods allow for extensions to be provided. Extensions can be specified 
+    by vendors and KMEs shall follow the specification of any extension it claims 
+    to have implemented. Where relevant, this includes passing on without change 
+    any information indicated to be immutable in the specification of the extension.
+    
+    Properties may be of any type, but their names shall be unique and start 
+    with a vendor prefix that shall be the capital letter `E` followed by an 
+    IANA Private Enterprise Number (PEN) followed by an underscore. The 
+    organization to which the PEN is assigned can use the extension for their 
+    own purposes, or can provide a specification for the extension to other 
+    organizations so they can also implement the extension. No organization 
+    shall use an extension starting with a vendor prefix with the PEN of any 
+    other organization without following a specification from the organization 
+    associated with the PEN.
+    
+    ETSI might specify extensions in future but unless it does ETSI's IANA 
+    Private Enterprise Number `13019` is reserved and shall not be used.
+
+    NOTE: Extensions can originate from SAE requests that triggered key 
+    relaying, or can be added by a KME, e.g. to add metadata etc. 
+    Requirements in the specification of an extension can prohibit addition 
+    of an extension by a KME in subsequent calls. Extensions could be 
+    deserialized to a dictionary within a KME. Both property names and their 
+    values can be significant.
+
+    Relevant schema include `extension`<!-- ~sec__sch__extension -->, 
+    `extension_mandatory`<!-- ~sec__sch__extension_mandatory -->, 
+    and `extension_optional`<!-- ~sec__sch__extension_optional -->.
+
+    # SAE IDs
+
+    SAE IDs shall be unique across any set of connected QKD networks. 
+    In some circumstances, duplicate SAE IDs could result in keys being made 
+    available to an SAE other than the intended SAE(s). To obtain a key 
+    intended for another SAE in the presence of duplicate SAE IDs using the 
+    API in ETSI GS QKD 014 [[GSQKD014](#ref_GSQKD014)] from an otherwise 
+    securely-implemented KME, a malicious target SAE would need to 
+    specify a valid `key_id`<!-- ~sec__sch__key_id --> associated with the other 
+    target SAE in an appropriately-timed request. However, even where 
+    potential mitigations apply in some circumstances (such as maintaining 
+    the `key_id`<!-- ~sec__sch__key_id --> as confidential) reliable delivery 
+    can be compromised by duplicate SAE IDs.
+
+    How connected QKD networks ensure the uniqueness of SAE ID is beyond 
+    the scope of the present document.
+
+    SAE IDs (`initiator_sae_id`<!-- ~sec__sch__initiator_sae_id --> and 
+    `target_sae_id`<!-- ~sec__sch__target_sae_id -->) shall not exceed 64 
+    characters in length. Where SAEs are likely to want to communicate 
+    SAE IDs in restricted-length-parameters of other protocols connected 
+    QKD networks can consider further limiting SAE ID lengths.
+
+    SAE IDs shall not include characters that would not be allowed within a 
+    URI as specified in IETF RFC 3986 [[RFC3986](#ref_RFC3986)] with 
+    reference to IETF RFC 5234 [[RFC5234](#ref_RFC5234)]. SAE IDs are not 
+    required to be URIs.
+    
+    NOTE: IETF RFC 3986 [[RFC3986](#ref_RFC3986)] allows unreserved characters 
+    `unreserved = (ALPHA / DIGIT / "-" / "." / "_" / "~")`, 
+    reserved general delimiter characters 
+    `gen-delims = (":" / "/" / "?" / "#" / "[" / "]" / "@")`,
+    and sub-delimiter characters 
+    `sub-delims = ("!" / "$" / "&" / "'" / "(" / ")" / "*" / "+" / "," / ";" / "=")` 
+    as well as percent encoded characters `pct-encoded = "%" HEXDIG HEXDIG`. 
+    See IETF RFC 5234 [[RFC5234](#ref_RFC5234)] 
+    for definitions of `ALPHA = (%x41-5A / %x61-7A; A-Z / a-z)`, 
+    `DIGIT = %x30-39; 0-9`, 
+    and `HEXDIG = (DIGIT / "A" / "B" / "C" / "D" / "E" / "F")`.
+
+    # Example use case for the API
+
+    [Figure 5](#fig_seq_diag_uc_main) shows a use-case in which the 
+    `ext_keys`<!-- ~sec__op_p_kmapi_v1_ext_keys --> operation is used to pass keys 
+    between KMEs in an interworking node of a three-node network. It is comprised of 
+    two networks X and Y that both have a presence in an interworking node. Key delivery 
+    to applications using ETSI GS QKD 014 [[GSQKD014](#ref_GSQKD014)] is considered in 
+    this use case.
+    
+    The asynchronous key delivery between two QKD networks is uncoupled from any 
+    SAE protocol or workflow. This use case considers a reactive pattern in which keys 
+    are requested by an initiator SAE. Use cases following a proactive pattern are also 
+    possible in which a KME node acts as an initiator SAE to request keys to fill one 
+    or more shared buffers of keys that such KMEs can then use to delivery keys to 
+    client SAEs.
+
+    1. SAE A makes a local request within Site A to KME X1 of QKD network X for key(s) 
+    shared with SAE C, which is in a separate Site C served by another QKD network Y.
+    
+    2. QKD network X performs operations using QKD keys to establish shared key(s) 
+    between KME X1 in SAE A's site and KME X2, which is in an interworking node at Site B. 
+    Communications can be proprietary to systems within QKD network X and details are 
+    not indicated in [figure 5](#fig_seq_diag_uc_main).
+
+    3. Within Site B KME X2 issues a request to `ext_keys`<!-- ~sec__op_p_kmapi_v1_ext_keys --> 
+    on KME Y2 using the API specified in the present document.
+
+    4. KME Y2 responds immediately with HTTP status 
+    code `202`<!-- ~sec__op_p_kmapi_v1_ext_keys__resp__202 --> ('Request accepted').
+
+    5. QKD network Y performs operations using QKD keys to transfer the key(s) to 
+    KME Y1 in Site C. Communications can be proprietary to systems within QKD network Y, 
+    hence details are not indicated in [figure 5](#fig_seq_diag_uc_main).
+
+    6. Once QKD network Y has ensured the key(s) are available in KME Y1, KME Y2 issues a 
+    request to `ext_keys/ack`<!-- ~sec__op_p_kmapi_v1_ext_keys_ack --> on KME X2 
+    to acknowledge that the request was successful.
+
+    7. KME X2 responds immediately with HTTP status 
+    code `200`<!-- ~sec__op_p_kmapi_v1_ext_keys__resp__200 --> ('Successful OK') to confirm that 
+    KME X2 has received the acknowledgement.
+
+    8. QKD network X communicates the successful result back to KME X1. Communications 
+    can be proprietary to systems within QKD network X and details are not indicated 
+    in [figure 5](#fig_seq_diag_uc_main).
+
+    9. KME X1 returns the key(s) to SAE A by responding to the original request from 
+    SAE A.
+
+    10. SAE A communicated the key ID(s) to SAE C. Communications can be proprietary 
+    to systems of the application, hence details are not indicated in [figure 5](#fig_seq_diag_uc_main).
+
+    11. SAE C uses the key ID(s) to request the key(s) from KME Y1 locally within Site C.
+
+    12. KME Y1 responds to SAE C with the key(s). Both SAE A and SAE C now share 
+    identical key(s) and can proceed to consume them for cryptographic purposes.
+
+    In this manner keys are shared between SAEs A and C via the use of 
+    `ext_keys`<!-- ~sec__op_p_kmapi_v1_ext_keys --> within the interworking node.
+
+    ```mermaid
+      sequenceDiagram
+      autonumber
+
+      box LightGray Site A (Nwk X)
+        participant A as SAE A
+        participant B as KME X1
+      end
+      box Site B (Interworking node)
+        participant C as KME X2 (Nwk X)
+        participant D as KME Y2 (Nwk Y)
+      end
+      box LightYellow Site C  (Nwk Y)
+        participant E as KME Y1
+        participant F as SAE C
+      end
+      A->>B: Request keys (GS QKD 014)
+      activate B
+      rect rgba(255,0,0,0.07)
+        Note over B, E: Network specific key establishment and use of GS QKD 020 in interworking node
+        B<<-->>C: Nwk X key establishment
+        activate C
+        C->>D: ext_keys
+        activate D
+        D->>C: 202 Request accepted
+        D<<-->>E: Nwk Y key establishment
+        activate E
+        D->>C: ext_keys/ack
+        C->>D: 200 Successful OK
+        deactivate C
+        deactivate D
+        C-->>B: Nwk X communicates success or not
+      end
+      B->>A: 200 Successful OK (GS QKD 014)
+      A-->>F: SAEs share key ID (application specific)
+      F->>E: Request keys with id (GS QKD 014)
+      E->>F: 200 Successful OK (GS QKD 014)
+      deactivate B
+      deactivate E
+    ```
+    <!-- h=9.16cm w=16.8cm -->
+
+    ![Message sequence diagram between KMEs in three sites A, B and C in two 
+    networks X and Y. The messages described in the numbered list in the body 
+    text are shown between the KMEs.](https://forge.etsi.org/rep/qkd/gs020-interop-kms/-/raw/v1.1.1/figures/seq_diag_uc_main.svg)
+
+    <p style="font-weight: bold; text-align:center" id="fig_seq_diag_uc_main">Figure 5: Sequence 
+    diagram for use case of real-time ETSI GS QKD 014 [<a href="#ref_GSQKD014">GSQKD014</a>] key request 
+    established via interwork node</p>
+
+servers:
+  - url: https://{kme_hostname}
+    description: Local KME server
+    variables:
+      kme_hostname:
+        default: 127.0.0.1:443
+externalDocs:
+  description: ETSI Group Specification
+  url: https://www.etsi.org/deliver/etsi_gs/QKD/001_099/020/01.01.01_60/gs_QKD020v010101p.pdf
+  x-work-item-description: Work Item description
+  x-work-item-url: https://portal.etsi.org/webapp/WorkProgram/Report_WorkItem.asp?WKI_ID=63115
+  x-forge-description: GitLab Respository on ETSI Forge
+  x-forge-url: https://forge.etsi.org/rep/qkd/gs020-interop-kms
+  x-forge-url-this-version: https://forge.etsi.org/rep/qkd/gs020-interop-kms/-/tree/v1.1.1
+tags:
+  - name: versions
+    description: Versionless path that can be used to query 
+      the available versions of this API on a KME.
+    x-displayName: "versions: API versions available"
+
+  - name: ext_keys
+    description: Collection of versioned paths to pass keys 
+      to another KME, acknowledge the status of keys, or void keys. 
+    x-displayName: "ext_keys: Interoperation (external keys)"
+
+paths:
+  /kmapi/versions:
+    get:
+      summary: Get supported API versions
+      operationId: get_versions
+      tags:
+      - versions
+      description: |
+        Return list of versions of the API that are supported by the KME.
+
+        When a KME makes a request to another KME, it should use the most 
+        recent version of the API that the KMEs both support.
+
+        The SAE can use this end-point to determine which API versions the KME
+        supports.
+      responses:
+        '200':
+          $ref: '#/components/responses/200-version'
+        '401':
+          $ref: '#/components/responses/401-extkey'
+        '503':
+          $ref: '#/components/responses/503-extkey'
+
+  /kmapi/v1/ext_keys:
+    post:
+      summary: Transfer keys to external KMS
+      operationId: post-ext_keys
+      tags:
+      - ext_keys
+      description: |
+        Pass an `ext_key_container`<!-- ~sec__sch__ext_key_container --> 
+        extended key request container comprising key material and
+        associated data to another KME, for the key(s) to be delivered (by relay
+        where necessary) to the target SAE(s) specified. The extended key
+        request container contains keys matching those to be delivered to the
+        initiator SAE.
+
+        Upon a valid request, for the required asynchronous mode, the KME shall 
+        aim to respond without undue delay with a 
+        `202`<!-- ~sec__op_p_kmapi_v1_ext_keys__resp__202 --> ('Accepted'), 
+        then it shall issue a separate call (or multiple calls) to the specified 
+        `ack_callback_url`<!-- ~tp__op_p_kmapi_v1_ext_keys__application_json__ack_callback_url -->
+        endpoint once the keys are actually delivered (or fail to be delivered).
+
+        If synchronous mode is implemented in addition to the asynchronous 
+        mode, the KME shall not use 
+        `ext_keys/ack`<!-- ~sec__op_p_kmapi_v1_ext_keys_ack --> to acknowledge 
+        outcomes for keys from synchronous mode requests 
+        (`ack_callback_url`<!-- ~sec__sch__ack_callback_url --> would have been 
+        omitted from these requests). Instead, the KME shall respond with a 
+        `200`<!-- ~sec__op_p_kmapi_v1_ext_keys__resp__200 --> ('Successful OK').
+
+        A `400`<!-- ~sec__op_p_kmapi_v1_ext_keys__resp__400 --> error may be returned 
+        if the request is known to be invalid without further investigation (e.g. 
+        if the container format is invalid or it includes initiator/target SAE IDs 
+        for which a valid route is not known to the KME).
+      requestBody:
+        description: |
+          `ext_key_container`<!-- ~sec__sch__ext_key_container --> extended key request container.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ext_key_container'
+      responses:
+        '200':
+          $ref: '#/components/responses/200-extkey-sync'
+        '202':
+          $ref: '#/components/responses/202-extkey'
+        '400':
+          $ref: '#/components/responses/400-extkey'
+        '401':
+          $ref: '#/components/responses/401-extkey'
+        '408':
+          $ref: '#/components/responses/408-extkey'
+        '503':
+          $ref: '#/components/responses/503-extkey'
+
+  /kmapi/v1/ext_keys/ack:
+    post:
+      summary: Acknowledge status of keys after API request(s)
+      operationId: post_ext_keys_ack
+      tags:
+      - ext_keys
+      description: |
+        Pass an array of one or more key acknowledgement container 
+        `ack_container`<!-- ~sec__sch__ack_container --> comprising key IDs
+        associated with a previous call to the 
+        `ext_keys`<!-- ~sec__op_p_kmapi_v1_ext_keys --> or 
+        `ext_keys/void`<!-- ~sec__op_p_kmapi_v1_ext_keys_void --> method by an 
+        external KMS. The status of all keys in each container is indicated by 
+        the status field. One or more additional 
+        `ack_container`<!-- ~sec__sch__ack_container --> can be added to the array 
+        if one or more additional status needs to be reported for different 
+        sets of keys.
+
+        The `ack_status`<!-- ~sec__sch__ack_status --> field shall not take a value 
+        other than one of the following: `relayed`, `voided`, `failed`, `failed to void`, 
+        or `key not present`.
+
+        - `relayed` indicates the KME has successfully relayed the specified
+        keys to the target(s) in `target_sae_ids`<!-- ~sec__sch__target_sae_ids -->.
+
+        - `voided` indicates the KME has successfully voided the specified keys
+        so they will not be delivered to applications.
+
+        - `failed` indicates that `ext_keys`<!-- ~sec__op_p_kmapi_v1_ext_keys --> 
+        relay request on the specified keys could not be completed. For example, an 
+        `ext_keys`<!-- ~sec__op_p_kmapi_v1_ext_keys --> request may not
+        complete if there is insufficient key material for relaying.
+
+        - `failed to void` indicates that 
+        `ext_keys/void`<!-- ~sec__op_p_kmapi_v1_ext_keys_void --> request on 
+        the specified keys could not be completed. For example, an 
+        `ext_keys/void`<!-- ~sec__op_p_kmapi_v1_ext_keys_void --> request may not
+        complete if a KME is offline. Note that a
+        `ext_keys/void`<!-- ~sec__op_p_kmapi_v1_ext_keys_void --> request will fail 
+        if the specified keys have already been delivered to a requesting SAE.
+
+        - `key not present` indicates that the specified keys could not be found
+        by the KME.
+
+        In addition to the `status` field, additional information (e.g.
+        explaining a failure) can be included in the optional `message` field.
+
+        It is possible that a single 
+        `ext_keys`<!-- ~sec__op_p_kmapi_v1_ext_keys --> request included multiple keys,
+        where some are successfully delivered and others fail. This can be
+        indicated by a KME including more than one acknowledgement request 
+        `ack_container`<!-- ~sec__sch__ack_container --> in the array to specify different 
+        statuses for different sets of keys. Multiple calls to 
+        `ext_keys/ack`<!-- ~sec__op_p_kmapi_v1_ext_keys_ack --> can also be issued, 
+        for example to enable faster acknowledgements for some keys than for others.
+
+        Keys acknowledged in a call to 
+        `ext_keys/ack`<!-- ~sec__op_p_kmapi_v1_ext_keys_ack --> do not necessarily arise 
+        from a single request to the `ext_keys`<!-- ~sec__op_p_kmapi_v1_ext_keys --> or 
+        `ext_keys/void`<!-- ~sec__op_p_kmapi_v1_ext_keys_void --> methods. They can be 
+        combined in any manner but each key acknowledgement container 
+        `ack_container`<!-- ~sec__sch__ack_container --> within the array groups 
+        acknowledgements sharing the same `ack_status`<!-- ~sec__sch__ack_status -->, 
+        `initiator_sae_id`<!-- ~sec__sch__initiator_sae_id --> and 
+        `target_sae_ids`<!-- ~sec__sch__target_sae_ids -->.
+
+        Extension fields may also be optionally included (which could be, e.g.
+        metadata for each key to indicate its routing information from the
+        remote KMS). If such extensions are included, the extensions should be
+        handled accordingly (e.g. to keep the provided metadata with each key so
+        it can be relayed to the initiator SAE).
+
+        A KME receiving a valid acknowledgement shall return a 
+        `200`<!-- ~sec__op_p_kmapi_v1_ext_keys_ack__resp__200 --> code, otherwise a 
+        status code indicating an error shall be returned including details of the error.
+      requestBody:
+        description: Acknowledgements containers
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ack_containers'
+      responses:
+        '200':
+          $ref: '#/components/responses/200-extkey-ack'
+        '400':
+          $ref: '#/components/responses/400-extkey-ack'
+        '401':
+          $ref: '#/components/responses/401-extkey'
+        '503':
+          $ref: '#/components/responses/503-extkey'
+          
+  /kmapi/v1/ext_keys/void:
+    post:
+      summary: Signal keys as void to external KMS (i.e. discard keys)
+      operationId: post_ext_keys_void
+      tags:
+      - ext_keys
+      description: |
+        Pass a `void_container`<!-- ~sec__sch__void_container --> 
+        void request container comprising key IDs to another KME, for 
+        the key(s) to be marked as void (i.e. discarded and not delivered 
+        to SAEs). The `void_container`<!-- ~sec__sch__void_container --> 
+        void request container contains keys matching those already 
+        passed to the KME.
+
+        Upon a valid request, for the required asynchronous mode, a KME shall discard
+        keys relating to the provided key IDs and post a call to the specified 
+        `ack_callback_url`<!-- ~tp__op_p_kmapi_v1_ext_keys_void__application_json__ack_callback_url --> 
+        describing the completed operation. After this, the KMEs shall not use the impacted 
+        key(s) including rejecting any application requests to retrieve them.
+
+        If synchronous mode is implemented in addition to the asynchronous 
+        mode, the KME shall not use 
+        `ext_keys/ack`<!-- ~sec__op_p_kmapi_v1_ext_keys_ack --> to acknowledge 
+        outcomes for keys from synchronous mode requests 
+        (`ack_callback_url`<!-- ~tp__op_p_kmapi_v1_ext_keys_void__application_json__ack_callback_url --> 
+        would have been omitted from these requests). Instead, the KME shall respond with a 
+        `200`<!-- ~sec__op_p_kmapi_v1_ext_keys_void__resp__200 --> ('Successful OK').
+
+        A `400`<!-- ~sec__op_p_kmapi_v1_ext_keys_void__resp__400 --> code may be 
+        returned if the request is known to be invalid without further investigation. 
+        Otherwise, failures to void keys can be reported subsequently via 
+        `ack_callback_url`<!-- ~tp__op_p_kmapi_v1_ext_keys_void__application_json__ack_callback_url -->.
+
+        If this operation is requested with an empty
+        `key_ids`<!-- ~tp__op_p_kmapi_v1_ext_keys_void__application_json__key_ids --> array, 
+        all keys shared between the pre-specified SAEs shall be voided. To 
+        reduce the risk of accidental key loss, the KME shall reject any void 
+        request that does not specify one or more `key_id`<!-- ~sec__sch__key_id --> 
+        unless the 
+        `all_confirmation`<!-- ~tp__op_p_kmapi_v1_ext_keys_void__application_json__all_confirmation --> 
+        parameter is included in the `void_container`<!-- ~sec__sch__void_container --> with a value of true. 
+        In the case of such a rejection the KME shall return a 
+        `400`<!-- ~sec__op_p_kmapi_v1_ext_keys_void__resp__400 --> code.
+      requestBody:
+        description: Void request container
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/void_container'
+      responses:
+        '200':
+          $ref: '#/components/responses/200-extkey-void-sync'
+        '202':
+          $ref: '#/components/responses/202-extkey'
+        '400':
+          $ref: '#/components/responses/400-extkey-void'
+        '401':
+          $ref: '#/components/responses/401-extkey'
+        '408':
+          $ref: '#/components/responses/408-extkey'
+        '503':
+          $ref: '#/components/responses/503-extkey'
+
+components:
+  responses:
+    200-extkey-ack:
+      description: Successful OK response
+
+    200-extkey-sync:
+      description: Successful OK response to synchronous mode request. Hosts that do not
+        support the optional synchronous mode will never return this response.
+      x-summary: Successful response (synchronous mode)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ack_containers'
+
+    200-extkey-void-sync:
+      description: Successful OK response to synchronous mode request. Hosts that do not
+        support the optional synchronous mode will never return this response.
+      x-summary: Successful response (synchronous mode)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ack_containers'
+          examples:
+            successful_response:
+              value:
+                - key_id_container:
+                    - key_id: 550e8400-e29b-41d4-a716-446655440000
+                      extension:
+                        E32473_extension1: Some string applicable to a particular key
+                        E32473_extension2:
+                          property1: 10111
+                          property2:
+                            subprop1: 21
+                            subprop2: true
+                  ack_status: voided
+                  initiator_sae_id: encryptor1
+                  target_sae_ids:
+                    - encryptor2
+                  message: string
+                  extension:
+                    E32473_extension1: Some string applicable to all keys in the container
+                    E32473_extension2:
+                      property1: 10111
+                      property2:
+                        subprop1: 21
+                        subprop2: true
+
+    200-version:
+      description: Successful OK response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/version_container'
+          examples:
+            successful_response:
+              value:
+                versions:
+                  - v1
+                capabilities:
+                  - synchronous_mode
+                extension:
+                  E32473_extension1: Some string
+                  E32473_extension2:
+                    property1: 10111
+                    property2: Some text
+                    property3:
+                      subprop1: 21
+                      subprop2: true
+    
+    202-extkey:
+      description: The response can be given to indicate that the server 
+        accepted the request. It is for requests using the asynchronous 
+        mode for which it is expected that a response will be given without 
+        undue delay after receipt of the request, e.g. without waiting 
+        for communications with other KMEs etc.
+      x-summary: Request accepted response
+
+    400-extkey:
+      description: Used to reflect an error in the format of a 
+        request. A KME is not allowed to return response code 400
+        if there is a possibility any association with a key in the 
+        request has been retained by the KME. See the clause on 
+        "Operation of the API" for requirements.
+      x-summary: Bad request format response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/problem_details'
+          examples:
+            missing_parameters:
+              summary: Example response where parameters were missing from the request.
+              value:
+                type: https://qkd.etsi.org/gs020-interop-kms/missing-parameters
+                status: 400
+                title: missing parameters
+                details:
+                  missing_parameters: Required parameters are missing from the API call.
+            unknown_sae_id:
+              value:
+                type: https://qkd.etsi.org/gs020-interop-kms/key-routing-error
+                status: 400
+                title: key routing error
+                details:
+                  target_sae_id_not_recognized: KME associated with a target SAE ID is not known.
+            no_passback_allowed:
+              value:
+                type: https://qkd.etsi.org/gs020-interop-kms/key-routing-error
+                status: 400
+                title: key routing error
+                details:
+                  invalid_routing: Routing this key to target SAE ID requires directly
+                      passing it back to the calling KME, which is invalid.
+
+    400-extkey-void:
+      description: Bad request format response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/problem_details'
+          examples:
+            failed:
+              value:
+                type: https://qkd.etsi.org/gs020-interop-kms/void-request-not-understood
+                status: 400
+                title: void request not understood
+                details:
+                  key_voiding_error: KME cannot parse the submitted void request.
+            no_key_ids_or_confirmation:
+              value:
+                type: https://qkd.etsi.org/gs020-interop-kms/no-key-ids-or-confirmation
+                title: no key ids or confirmation
+                details:
+                  no_key_ids_or_confirmation: >-
+                      When no key_ids are passed, all keys shared between the
+                      SAEs will be voided. If this is the intended action, the
+                      all_confirmation field also needs to be set with a value 
+                      of true. Otherwise, please specify key_ids to be voided.
+
+    400-extkey-ack:
+      description: Bad request format response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/problem_details'
+          examples:
+            not_understood:
+              value:
+                type: https://qkd.etsi.org/gs020-interop-kms/ack-not-understood
+                status: 400
+                title: ack not understood
+                details:
+                  ack_not_understood: KME cannot parse the submitted acknowledgement.
+            key_not_present:
+              value:
+                type: https://qkd.etsi.org/gs020-interop-kms/key-not-present
+                title: key not present
+                details:
+                  key_not_present: The acknowledged key ID(s) are not known to this KME.
+
+    401-extkey:
+      description: Used to reflect that the request was not successfully 
+        authorized. A KME is not allowed to return response code 401
+        if there is a possibility any association with a key in the 
+        request has been retained by the KME. See the clause on 
+        "Operation of the API" for requirements.
+      x-summary: Unauthorized response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/problem_details'
+          examples:
+            unauthorized_response:
+              value:
+                type: https://qkd.etsi.org/gs020-interop-kms/unauthorized
+                status: 401
+                title: unauthorized
+                details:
+                  unauthorized: User-supplied certificate is invalid.
+
+    408-extkey:
+      description: Request timeout response. This is most likely to be issued 
+        where a complete request is not received and the server terminates 
+        the connection after some period of inactivity.
+      x-summary: Request timeout response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/problem_details'
+          examples:
+            timeout_response:
+              value:
+                type: https://qkd.etsi.org/gs020-interop-kms/timeout
+                status: 408
+                title: timeout
+                details:
+                  timeout: A complete request was not received in time.
+
+    503-extkey:
+      description: Error of server side response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/problem_details'
+          examples:
+            error_of_server_side_response:
+              value:
+                type: https://qkd.etsi.org/gs020-interop-kms/server-side-general-error
+                status: 503
+                title: server side general error
+                details:
+                  server_side_general_error: The server encountered a general failure and cannot respond.
+            no_route_multiple_targets:
+              value:
+                type: https://qkd.etsi.org/gs020-interop-kms/key-routing-error
+                status: 503
+                title: key routing error
+                details:
+                  no_route_multiple_targets: Routes not available to support these multiple target SAEs.
+            no_known_route:
+              value:
+                type: https://qkd.etsi.org/gs020-interop-kms/key-routing-error
+                status: 503
+                title: key routing error
+                details:
+                  no_known_route: KME does not know a route to deliver to a target SAE ID.
+            insufficient_key_material:
+              value:
+                type: https://qkd.etsi.org/gs020-interop-kms/insufficient-key-material
+                status: 503
+                title: insufficient key material
+                details:
+                  insufficient_key_material: Insufficient key material available to deliver key.
+            unsupported_mandatory_extension:
+              description: Example response from a KME that cannot handle two 
+                `extension_mandatory`<!-- ~sec__sch__extension_mandatory --> extensions
+                that were supplied with a request.
+              value:
+                type: https://qkd.etsi.org/gs020-interop-kms/unsupported-mandatory-extension
+                status: 503
+                title: unsupported mandatory extension
+                details:
+                  unsupported_mandatory_extension: Mandatory extensions E32473_ext1 and E32473_ext2 cannot be supported for this request.
+
+  schemas:
+
+    ack_callback_url:
+      description: |
+        Acknowledgements callback URL `ack_callback_url`<!-- ~sec__sch__ack_callback_url --> 
+        to which acknowledgement(s) should be sent after all or part of the
+        request completes or fails.
+        
+        For the required asynchronous mode, this parameter is required and shall be specified.
+        
+        If this parameter is omitted the request shall be interpreted as a 
+        request to invoke the endpoint in the optional synchronous mode. 
+        Otherwise, it shall be interpreted as a request to invoke the endpoint 
+        using the required asynchronous mode. Refer to the clause on 
+        [Operation of the API](#section/Operation-of-the-API) for the required 
+        asynchronous and optional synchronous modes of operation.
+
+        Before submitting synchronous mode requests without an 
+        `ack_callback_url`<!-- ~sec__sch__ack_callback_url --> to a new KME, the 
+        `/kmapi/versions`<!-- ~sec__op_g_kmapi_versions --> endpoint should be 
+        called to confirm that the new KME supports the optional synchronous mode 
+        `capability`<!-- ~sec__sch__capability -->.
+
+        Where provided, `ack_callback_url`<!-- ~sec__sch__ack_callback_url --> shall be a 
+        complete URL starting with the protocol, i.e. starting `https://`. The authority 
+        may optionally include a port number, in addition to a domain or IP address.
+      type: string
+      format: uri
+      maxLength: 1024
+      example:
+        https://kme1/kmapi/v1/ext_keys/ack
+      
+    ack_container:
+      description: Acknowledgements container `ack_container`<!-- ~sec__sch__ack_container --> 
+        through which results shall be reported once the requested operations have 
+        completed.
+      type: object
+      required:
+        - key_id_container
+        - ack_status
+        - initiator_sae_id
+        - target_sae_ids
+      properties:
+        key_id_container:
+          $ref: '#/components/schemas/key_id_container'
+        ack_status:
+          $ref: '#/components/schemas/ack_status'
+        initiator_sae_id:
+          $ref: '#/components/schemas/initiator_sae_id'
+        target_sae_ids:
+          $ref: '#/components/schemas/target_sae_ids'
+        message:
+          $ref: '#/components/schemas/ack_message'
+        extension:
+          $ref: '#/components/schemas/extension'
+      example:
+        key_id_container:
+          - key_id: 550e8400-e29b-41d4-a716-446655440000
+            extension:
+              E32473_extension1: Some string applicable to a particular key
+              E32473_extension2:
+                property1: 10111
+                property2:
+                  subprop1: 21
+                  subprop2: true
+        ack_status: relayed
+        initiator_sae_id: encryptor1
+        target_sae_ids:
+          - encryptor2
+        message: string
+        extension:
+          E32473_extension1: Some string applicable to all keys in the container
+          E32473_extension2:
+            property1: 10111
+            property2:
+              subprop1: 21
+              subprop2: true
+
+    ack_containers:
+      description: Acknowledgements container `ack_containers`<!-- ~sec__sch__ack_containers --> 
+        shall be an array of acknowledgements containers `ack_container`<!-- ~sec__sch__ack_container -->. 
+        An `ack_containers`<!-- ~sec__sch__ack_containers --> can be used to acknowledge keys with different 
+        statuses, SAE IDs etc., whereas keys in a single `ack_container`<!-- ~sec__sch__ack_container --> 
+        share some common properties.
+      type: array
+      maxItems: 1024 
+      items:
+        $ref: '#/components/schemas/ack_container'
+      example:
+        - key_id_container:
+            - key_id: 550e8400-e29b-41d4-a716-446655440000
+              extension:
+                E32473_extension1: Some string applicable to a particular key
+                E32473_extension2:
+                  property1: 10111
+                  property2:
+                    subprop1: 21
+                    subprop2: true
+          ack_status: relayed
+          initiator_sae_id: encryptor1
+          target_sae_ids:
+            - encryptor2
+          message: string
+          extension:
+            E32473_extension1: Some string applicable to all keys in the container
+            E32473_extension2:
+              property1: 10111
+              property2:
+                subprop1: 21
+                subprop2: true
+ 
+    ack_message:
+      description: |
+        Acknowledgement message `ack_message`<!-- ~sec__sch__ack_message --> 
+        optionally provides further details to expand upon the 
+        `ack_status`<!-- ~sec__sch__ack_status -->.
+      type: string
+      maxLength: 4096
+
+    ack_status:
+      description: Acknowledgement status `ack_status`<!-- ~sec__sch__ack_status --> 
+        shall be an enum that describes the status of the acknowledged keys.
+        See `ext_keys/ack`<!-- ~sec__op_p_kmapi_v1_ext_keys_ack --> for details 
+        of the usage of `ack_status`<!-- ~sec__sch__ack_status -->.
+      type: string
+      maxLength: 16
+      enum:
+        - relayed
+        - failed
+        - voided
+        - failed to void
+        - key not present
+      example: relayed
+
+    all_confirmation:
+      description: |
+        `all_confirmation`<!-- ~sec__sch__all_confirmation --> acts as a 
+        confirmation flag that shall be included with a value of `true` 
+        to confirm that voiding of all keys between the specified SAEs is 
+        intended when no key IDs are specified in a call to 
+        `ext_keys/void`<!-- ~sec__op_p_kmapi_v1_ext_keys_void -->.
+
+        If `all_confirmation`<!-- ~sec__sch__all_confirmation --> is omitted 
+        or its value is not `true` when no key IDs are specified in a call to
+        `ext_keys/void`<!-- ~sec__op_p_kmapi_v1_ext_keys_void --> the response 
+        shall be 
+        `400`<!-- ~sec__op_p_kmapi_v1_ext_keys_void__resp__400 --> ('Bad request format')
+        with a string named `no_all_confirmation` within `details`
+        in the response.
+      type: boolean
+      example: true
+
+    capabilities:
+      type: array
+      description: |
+        Capabilities `capabilities`<!-- ~sec__sch__capabilities --> shall be an 
+        array of strings each indicating a `capability`<!-- ~sec__sch__capability -->
+        supported by the host.
+        
+        Where a host supports the optional synchronous mode it should report this 
+        capability of `synchronous_mode`. Clients should confirm this capability 
+        before sending requests for synchronous mode. 
+      maxItems: 1000
+      items:
+        $ref: '#/components/schemas/capability'
+      example: 
+        - synchronous_mode
+
+    capability:
+      description: Capability `capability`<!-- ~sec__sch__capability --> shall be a string 
+        that indicates a capability supported by the host.
+      type: string
+      maxLength: 128
+      example: synchronous_mode
+
+    ext_key_container:
+      description: Extended key request container `ext_key_container`<!-- ~sec__sch__ext_key_container -->
+        is a container used in calls to the `/kmapi/v1/ext_keys`<!-- ~sec__op_p_kmapi_v1_ext_keys --> 
+        endpoint.
+      type: object
+      required:
+        - keys
+        - initiator_sae_id
+        - target_sae_ids
+      properties:
+        keys:
+          $ref: '#/components/schemas/keys'
+        initiator_sae_id:
+          $ref: '#/components/schemas/initiator_sae_id'
+        target_sae_ids:
+          $ref: '#/components/schemas/target_sae_ids'
+        ack_callback_url:
+          $ref: '#/components/schemas/ack_callback_url'
+        extension_mandatory:
+          $ref: '#/components/schemas/extension_mandatory'
+        extension_optional:
+          $ref: '#/components/schemas/extension_optional'
+      example:
+        keys:
+          - key_id: '550e8400-e29b-41d4-a716-446655440000'
+            value: wHHVxRwDJs3/bXd38GHP3oe4svTuRpZS0yCC7x4Ly+s=
+            extension:
+              E32473_extension1: Some string applicable to a particular key
+              E32473_extension2:
+                property1: 10111
+                property2: Some text
+                property3:
+                  subprop1: 21
+                  subprop2: true
+        initiator_sae_id: encryptor1
+        target_sae_ids:
+          - encryptor2
+        ack_callback_url: https://kme1/kmapi/v1/ext_keys/ack
+        extension_mandatory:
+          E32473_route_type: direct
+          E32473_method:
+            hybrid_keys: true
+            primary: qkd
+            secondary: pqc
+        extension_optional:
+          E32473_extension1: Some string applicable to all keys in the container
+          E32473_module_type:
+            vendor: Company ABC
+            protocol: BB84
+            min_version: 2.5
+          E32473_qos_session: e73d9abe
+
+    extension:
+      type: object
+      additionalProperties: true
+      minProperties: 1
+      maxProperties: 1024
+      description: |
+        Extension `extension`<!-- ~sec__sch__extension --> shall be an object 
+        containing any number of properties that each represents 
+        an extension specified by ETSI or another organization 
+        (such as a vendor). KMEs may choose to implement a set of 
+        extensions. Specifications of extensions can include 
+        requirements and KMEs that implement an extension shall comply 
+        with such requirements.
+
+        Further requirements are given in the [extensions](#section/Extensions) clause.
+      example:
+        E32473_extension1: Some string
+        E32473_extension2:
+          property1: 10111
+          property2: Some text
+          property3:
+            subprop1: 21
+            subprop2: true
+
+    extension_mandatory:
+      type: object
+      additionalProperties: true
+      minProperties: 1
+      maxProperties: 1024
+      description: |
+        Extension `extension_mandatory`<!-- ~sec__sch__extension_mandatory --> shall 
+        be an object containing any number of properties that each represent an 
+        extension specified by ETSI or another organization (such as a vendor) 
+        that KMEs shall handle or reject the request with a
+        `503` ('Error of server side response') adding a `details` entry named 
+        `unsupported_mandatory_extension`.
+        
+        Unless the receiving KME recognizes and implements all requirements 
+        within the specification of an 
+        `extension_mandatory`<!-- ~sec__sch__extension_mandatory --> extension it 
+        shall reject the request.
+        
+        KMEs shall follow the specification of any extension it claims to 
+        have implemented for a request. Where relevant, this includes 
+        passing on without change any information indicated to be immutable 
+        in the specification of the extension.
+
+        Further requirements are given in the [extensions](#section/Extensions) clause.
+      example:
+        E32473_module_type:
+          vendor: Company ABC
+          protocol: BB84
+          min_version: 2.5
+        E32473_qos_session: e73d9abe
+
+    extension_optional:
+      type: object
+      additionalProperties: true
+      minProperties: 1
+      maxProperties: 1024
+      description: |
+        Extension `extension_optional`<!-- ~sec__sch__extension_optional --> shall 
+        be an object containing any number of properties that each represent an 
+        extension specified by ETSI or another organization (such as a vendor) 
+        that KMEs may pass on even when the KME does not support the extension.
+
+        If a key management entity does not recognize and implement all requirements 
+        within the specification of an 
+        `extension_optional`<!-- ~sec__sch__extension_optional --> extension it shall 
+        pass on the `extension_optional`<!-- ~sec__sch__extension_optional --> extension 
+        without change.
+
+        KMEs shall follow the specification of any extension it claims to 
+        have implemented for a request. Where relevant, this includes 
+        passing on without change any information indicated to be immutable 
+        in the specification of the extension.
+
+        Further requirements are given in the [extensions](#section/Extensions) clause.
+      example:
+        E32473_module_type:
+          vendor: Company ABC
+          protocol: BB84
+          min_version: 2.5
+        E32473_qos_session: e73d9abe
+
+    initiator_sae_id:
+      type: string
+      minLength: 1
+      maxLength: 64
+      description: |
+        Initiator SAE ID `initiator_sae_id`<!-- ~sec__sch__initiator_sae_id --> shall 
+        be the ID of the SAE that originally requested to share key(s) with one or 
+        more target SAE(s). It can be used to refer to key(s) in 
+        `ext_keys`<!-- ~sec__op_p_kmapi_v1_ext_keys -->. It can also be used in 
+        `ext_keys/void`<!-- ~sec__op_p_kmapi_v1_ext_keys_void --> or 
+        `ext_keys/ack`<!-- ~sec__op_p_kmapi_v1_ext_keys_ack --> to refer to key(s) 
+        from a previous call (or calls) to `ext_keys`<!-- ~sec__op_p_kmapi_v1_ext_keys -->.
+
+        A KME can act as an (internal) SAE and request the sharing of key(s) with other 
+        KME(s) that are also acting as SAE(s). If no distinction between the initiator 
+        SAE and target SAE(s) applies to the origin of a request, an implementation may 
+        arbitrarily assign one as `initiator_sae_id`<!-- ~sec__sch__initiator_sae_id --> 
+        and other(s) `target_sae_id`<!-- ~sec__sch__target_sae_id -->.
+
+        SAE IDs shall follow the requirements under [SAE IDs](#section/SAE_IDs) in the 
+        main description.      
+      example: encryptor1
+
+    key_id:
+      description: >-
+        Key ID `key_id`<!-- ~sec__sch__key_id --> is the ID of the key and shall be a 
+        UUID as specified in IETF RFC 9562 [[RFC9562](#ref_RFC9562)], clause 4.
+      type: string
+      format: uuid
+      example: 550e8400-e29b-41d4-a716-446655440000
+
+    key_id_container:
+      type: array
+      description: Key ID container `key_id_container`<!-- ~sec__sch__key_id_container --> 
+        shall be an array of objects, each providing `key_id`<!-- ~sec__sch__key_id --> 
+        and optional `extension`<!-- ~sec__sch__extension --> information.
+      items:
+        type: object
+        required:
+          - key_id
+      maxItems: 1024
+      properties:
+        key_id:
+          $ref: '#/components/schemas/key_id'
+        extension:
+          $ref: '#/components/schemas/extension'
+      example:
+        - key_id: 550e8400-e29b-41d4-a716-446655440000
+          extension:
+            E32473_vendor: Company ABC
+            E32473_protocol: BB84
+
+    key_ids:
+      type: array
+      description: Key IDs `key_ids`<!-- ~sec__sch__key_ids --> shall be an 
+        array of `key_id`<!-- ~sec__sch__key_id -->.
+      items:
+        $ref: '#/components/schemas/key_id'
+      example:
+        - 550e8400-e29b-41d4-a716-446655440000
+        - 373b0b2c-d841-4765-af6f-c6232cda6531
+        - 65380d2d-7de4-4445-9a1e-23f77218e61d
+
+    key:
+      type: object
+      description: Key `key`<!-- ~sec__sch__key --> shall be an object containing  
+        a `key_id`<!-- ~sec__sch__key_id --> and its `value`<!-- ~sec__sch__value -->
+        with an optional `extension`<!-- ~sec__sch__extension --> dictionary.
+      required:
+        - key_id
+        - value
+      properties:
+        key_id:
+          $ref: '#/components/schemas/key_id'
+        value:
+          $ref: '#/components/schemas/value'
+        extension:
+          $ref: '#/components/schemas/extension'
+      example:
+        key_id: 550e8400-e29b-41d4-a716-446655440000
+        value: wHHVxRwDJs3/bXd38GHP3oe4svTuRpZS0yCC7x4Ly\u002Bs=
+        extension:
+          E32473_protocol: BB84
+
+    keys:
+      type: array
+      description: Keys `keys`<!-- ~sec__sch__keys --> shall be an array 
+        of `key`<!-- ~sec__sch__key -->.
+      items:
+        $ref: '#/components/schemas/key'
+      example:
+        - key_id: 550e8400-e29b-41d4-a716-446655440000
+          value: wHHVxRwDJs3/bXd38GHP3oe4svTuRpZS0yCC7x4Ly\u002Bs=
+          extension:
+            E32473_protocol: BB84
+
+    problem_details:
+      type: object
+      description: |
+        Problem Details `problem_details`<!-- ~sec__sch__problem_details --> 
+        shall be an object satisfying the requirements in IETF RFC 9457 
+        "Problem Details for HTTP APIs" [[RFC9457](#ref_RFC9457)]. 
+      properties:
+        type:
+          type: string
+          description: A URI reference that identifies the problem type.
+          format: uri
+          maxLength: 1024
+        status:
+          type: integer
+          description: The HTTP status code generated by the origin server for this occurrence of the problem.
+          format: int32
+          minimum: 100
+          maximum: 599
+          example: 400
+        title:
+          type: string
+          description: A short, human-readable summary of the problem type.
+          maxLength: 1024
+        details:
+          type: object
+          minProperties: 1
+          maxProperties: 1024
+          description: |
+            Object containing one or a number of string properties to convey 
+            details about the problem. Typically, the name of each string property will 
+            identify the topic with the string value providing more detailed information.
+
+            `details` can be deserialized to a dictionary of strings.
+          additionalProperties:
+            type: string
+      required:
+        - type
+      example:
+        type: https://qkd.etsi.org/gs020-interop-kms/invalid-parameter
+        status: 400
+        title: Invalid parameter format
+        details:
+          malformed_property: Property xxxx_xxxx does not match the expected format
+          invalid_character: Property xxxx_xxxx contains an invalid character
+    
+    target_sae_id:
+      type: string
+      minLength: 1
+      maxLength: 64
+      description: |
+        Target SAE ID `target_sae_id`<!-- ~sec__sch__target_sae_id --> shall be the 
+        ID of an SAE with which an initiator SAE originally requested to share key(s). 
+        It can be used to refer to key(s) in `ext_keys`<!-- ~sec__op_p_kmapi_v1_ext_keys -->.
+        It can also be used in `ext_keys/void`<!-- ~sec__op_p_kmapi_v1_ext_keys_void --> or 
+        `ext_keys/ack`<!-- ~sec__op_p_kmapi_v1_ext_keys_ack --> to refer to key(s) 
+        from a previous call (or calls) to `ext_keys`<!-- ~sec__op_p_kmapi_v1_ext_keys -->.
+        
+        A KME can act as an (internal) SAE and request the sharing of key(s) with other 
+        KME(s) that are also acting as SAE(s). If no distinction between the initiator 
+        SAE and target SAE(s) applies to the origin of a request, an implementation may 
+        arbitrarily assign one as `initiator_sae_id`<!-- ~sec__sch__initiator_sae_id --> 
+        and other(s) `target_sae_id`<!-- ~sec__sch__target_sae_id -->.
+
+        SAE IDs shall follow the requirements under [SAE IDs](#section/SAE_IDs) in the 
+        main description.
+      example:
+        - encryptor2
+
+    target_sae_ids:
+      type: array
+      description: |
+        `target_sae_ids`<!-- ~sec__sch__target_sae_ids --> shall be an array of 
+        `target_sae_id`<!-- ~sec__sch__target_sae_id --> that are the IDs of target 
+        SAEs relevant to a request. A single target or multiple targets may be 
+        specified. Each target SAE in addition to the initiator SAE are the SAEs 
+        eligible to receive an identical copy of a key.
+        
+        KMEs may support only one target SAE (a single SAE ID in the array) or 
+        limit the maximum number of target SAEs supported. Requests exceeding the 
+        capabilities of available KMEs may be rejected with a 
+        `503`<!-- ~sec__op_g_kmapi_versions__resp__503 --> ('Error of server side') 
+        response code.
+      items:
+        $ref: '#/components/schemas/target_sae_id'
+      example:
+        - encryptor2
+        - encryptor3
+
+    value:
+      description: |
+        Value `value`<!-- ~sec__sch__value --> shall be key data encoded by the base64 
+        data encoding scheme specified in IETF RFC 4648 [[RFC4648](#ref_RFC4648)], 
+        using the alphabet in table 1.
+
+        Implementations shall ensure that padding used in the base64 data 
+        encoding scheme is never used as key material. This includes the 
+        zero, two, or one `=` padding characters at the end of the final 
+        encoded unit of output where the final quantum of encoding input 
+        is exactly 24&nbsp;bits, 8&nbsp;bits, or 16&nbsp;bits, respectively.
+        
+        When non-integer-byte-size keys are used, it is essential to 
+        strip any padding bits with value zero that were added (on the 
+        right) when decoding. It is not safe to strip all bits with 
+        value zero from the end of the decoded key since this can bias 
+        keys. Decoding needs to make use of independent knowledge of 
+        the requested key size to correctly strip such padding to 
+        recover a valid key. (The base64 data encoding scheme and the `=` 
+        padding character rules it includes can only indicate the size of 
+        the encoding input in integer byte sizes. The final character 
+        of the encoded output or the final character before the first 
+        `=` padding character can include information from padding bits 
+        with value zero that were added during encoding in the case 
+        of non-integer-byte-size keys.)
+        
+        Support for non-integer-byte-size keys is optional and 
+        vendors may choose to support only integer byte sizes.
+      type: string
+      example: wHHVxRwDJs3/bXd38GHP3oe4svTuRpZS0yCC7x4Ly+s=
+
+    version:
+      type: string
+      description: Version `version`<!-- ~sec__sch__version --> shall be a string 
+        indicating a version of the API supported by the host.
+      maxLength: 16
+      example: v1
+
+    version_container:
+      description: Version container `version_container`<!-- ~sec__sch__version_container -->
+        shall be an object to indicate supported `versions`<!-- ~sec__sch__versions --> and 
+        `capabilities`<!-- ~sec__sch__capabilities --> of a host along with optional 
+        `extension`<!-- ~sec__sch__extension --> information.
+      type: object
+      required:
+        - versions
+      properties:
+        versions:
+          $ref: '#/components/schemas/versions'
+        capabilities:
+          $ref: '#/components/schemas/capabilities'
+        extension:
+          $ref: '#/components/schemas/extension'
+      example:
+        versions:
+          - v1
+        capabilities:
+          - synchronous_mode
+
+    versions:
+      type: array
+      description: Versions `versions`<!-- ~sec__sch__versions --> shall be an 
+        array of supported API versions `version`<!-- ~sec__sch__version -->.
+      maxItems: 1000
+      items:
+        $ref: '#/components/schemas/version'
+      example:
+        - v1
+      
+    void_container:
+      description: Void request container `void_container`<!-- ~sec__sch__void_container --> 
+        shall be an object used in the `ext_keys/void`<!-- ~sec__op_p_kmapi_v1_ext_keys_void -->
+        endpoint to request keys to be voided. 
+      type: object
+      required:
+        - key_ids
+        - initiator_sae_id
+        - target_sae_ids
+      properties:
+        key_ids:
+          $ref: '#/components/schemas/key_ids'
+        initiator_sae_id:
+          $ref: '#/components/schemas/initiator_sae_id'
+        target_sae_ids:
+          $ref: '#/components/schemas/target_sae_ids'
+        ack_callback_url:
+          $ref: '#/components/schemas/ack_callback_url'
+        extension:
+          $ref: '#/components/schemas/extension'
+        all_confirmation:
+          $ref: '#/components/schemas/all_confirmation'
+      example:
+        key_ids:
+          - 550e8400-e29b-41d4-a716-446655440000
+          - 373b0b2c-d841-4765-af6f-c6232cda6531
+          - 65380d2d-7de4-4445-9a1e-23f77218e61d
+        initiator_sae_id: encryptor1
+        target_sae_ids:
+          - encryptor2
+        ack_callback_url: https://kme1/kmapi/v1/ext_keys/ack
+        extension: 
+          E32473_extension1: Some string
+          E32473_extension2:
+            property1: 10111
+            property2: Some text
+            property3:
+              subprop1: 21
+              subprop2: true
+          
+  securitySchemes:
+    mTLS:
+      type: mutualTLS
+      description: >-
+        Mutual TLS security using certificates using TLS version 1.3 
+        (or later) shall be implemented according to the requirements 
+        under [Connection specification and security scheme](#section/Connection-specification-and-security-scheme) 
+        in the main description.
+      x-in-info-description: true
+
+security:
+  - mTLS: []

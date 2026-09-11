@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -16,7 +18,11 @@ import (
 	"time"
 
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/config"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/etsi014"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/etsi020"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/peering"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/relay"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/security"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/storage"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/synthetic"
@@ -33,6 +39,8 @@ func run() error {
 	configPath := flag.String("config", "deploy/config/local.json", "KMS configuration")
 	listen := flag.String("listen", "127.0.0.1:8443", "TLS listen address")
 	pki := flag.String("pki-dir", ".local/pki", "directory containing ca.crt.pem and kms certificate/key")
+	certName := flag.String("certificate-name", "kms", "certificate/key filename stem in PKI directory")
+	labSummary := flag.Bool("lab-summary", false, "emit material-free network laboratory summary on shutdown")
 	count := flag.Int("synthetic-keys", 0, "opt-in synthetic keys for the first configured association")
 	ttl := flag.Duration("synthetic-ttl", time.Hour, "synthetic key lifetime")
 	flag.Parse()
@@ -43,9 +51,48 @@ func run() error {
 	if *count < 0 || *count > c.Capacity || *ttl <= 0 {
 		return fmt.Errorf("invalid synthetic provisioning parameters")
 	}
-	repo, err := storage.NewMemory(c.Capacity, nil)
+	memory, err := storage.NewMemory(c.Capacity, nil)
 	if err != nil {
 		return err
+	}
+	var repo core.Repository = memory
+	var engine *relay.Engine
+	if c.InterKMS != nil {
+		cert, e := tls.LoadX509KeyPair(filepath.Join(*pki, *certName+".crt.pem"), filepath.Join(*pki, *certName+".key.pem"))
+		if e != nil {
+			return e
+		}
+		leaf, e := x509.ParseCertificate(cert.Certificate[0])
+		if e != nil || len(leaf.URIs) != 1 || leaf.URIs[0].String() != c.InterKMS.Identity {
+			return fmt.Errorf("KME certificate identity does not match configuration")
+		}
+		ca, e := os.ReadFile(filepath.Join(*pki, "ca.crt.pem"))
+		if e != nil {
+			return e
+		}
+		roots := x509.NewCertPool()
+		if !roots.AppendCertsFromPEM(ca) {
+			return fmt.Errorf("invalid peer CA")
+		}
+		client, e := etsi020.NewClient(*c.InterKMS, &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: roots, Certificates: []tls.Certificate{cert}})
+		if e != nil {
+			return e
+		}
+		defer client.Close()
+		engine, e = relay.Open(*c.InterKMS, c.Associations, c.Capacity, client)
+		if e != nil {
+			return e
+		}
+		defer engine.Close()
+		if *labSummary {
+			defer func() {
+				_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"event": "network_summary", "kme_id": c.KMEID, "summary": engine.Snapshot()})
+			}()
+		}
+		repo = engine
+		if *count > 0 && engine.Snapshot().Records > 0 {
+			return fmt.Errorf("synthetic provisioning requires a fresh network state directory; restart with --synthetic-keys=0")
+		}
 	}
 	if *count > 0 {
 		if err := synthetic.Seed(repo, c.Associations[0], *count, time.Now(), *ttl); err != nil {
@@ -56,13 +103,20 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	if engine != nil {
+		mux := http.NewServeMux()
+		mux.Handle("/", handler)
+		mux.Handle("/kmapi/", etsi020.Handler(engine, *c.InterKMS, peering.Standard))
+		mux.Handle("/lab/", etsi020.Handler(engine, *c.InterKMS, peering.LabRelay))
+		handler = mux
+	}
 	tlsConfig, err := security.ServerTLS(filepath.Join(*pki, "ca.crt.pem"))
 	if err != nil {
 		return err
 	}
 	server := &http.Server{Handler: handler, TLSConfig: tlsConfig, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 * 1024}
 	// Validate the certificate before reporting readiness.
-	certPath, keyPath := filepath.Join(*pki, "kms.crt.pem"), filepath.Join(*pki, "kms.key.pem")
+	certPath, keyPath := filepath.Join(*pki, *certName+".crt.pem"), filepath.Join(*pki, *certName+".key.pem")
 	if err := loadServerCertificate(tlsConfig, certPath, keyPath); err != nil {
 		return err
 	}
@@ -73,6 +127,12 @@ func run() error {
 	defer listener.Close()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if engine != nil {
+		workerCtx, cancel := context.WithCancel(ctx)
+		finished := make(chan struct{})
+		go func() { defer close(finished); engine.Run(workerCtx) }()
+		defer func() { cancel(); <-finished }()
+	}
 	done := make(chan error, 1)
 	go func() { done <- server.ServeTLS(listener, "", "") }()
 	_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"event": "listening", "address": listener.Addr().String(), "kme_id": c.KMEID, "synthetic_keys": *count})
