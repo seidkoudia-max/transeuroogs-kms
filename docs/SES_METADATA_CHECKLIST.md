@@ -31,6 +31,13 @@ evidence. These questions address the proposed [metadata profile](METADATA_PROFI
 | SES-M14 | Is inventory/scarcity/entitlement information available per association or service class? | Units, observation time, scope and admission/consumption semantics. |
 | SES-M15 | What may cross national boundaries, and what retention/disclosure conditions apply? | Agreed audience views, export and historical-access policies. |
 | SES-M16 | Can the test service exercise delayed relay, stale/missing claims, conflicting IDs, issuer rotation and incidents? | Partner test plan with synthetic fixtures and expected outcomes. |
+| SES-M17 | Does each OGS final-key service expose an explicit pool ID, or is pool selection implicit in endpoint and gateway SAE pair? | Identifier owner, scope, registration, selector and authorization contract; distinguish raw link accumulation from final inter-OGS keys. |
+| SES-M18 | How does each ground service authenticate the correspondence to its remote pool/service and report changes across offline relay, restart or failover? | Shared reference or endpoint-ID mapping, version/epoch semantics, readiness and synthetic conflict/stale-mapping examples; no new API assumed. |
+| SES-M19 | Can one provider pool serve several downstream application pairs, and if so how is the same KID assigned to the same pair at both ends? | Agreed immutable assignment and notification contract; otherwise retain one gateway/application pair per pool. |
+
+These additions support the [OGS pool design](KEY_POOL_DESIGN.md). Pool naming,
+final-key pairing and local consumption are separate responsibilities. Remote
+inventory equality is not an allocation or replay-safety guarantee.
 
 ## Decisions when information is unavailable
 

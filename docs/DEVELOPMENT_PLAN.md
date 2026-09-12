@@ -106,6 +106,13 @@ no IDQ/QUKY equipment is connected, upstream 014 ingestion and inter-KMS mode
 cannot yet be combined, and QKD link-key consumption/protected relay require an
 agreed integration increment. These tests do not establish physical interoperability.
 
+The next proposed cross-cutting increment is explicit
+[OGS-domain key pools](KEY_POOL_DESIGN.md): immutable peer/service pool bindings,
+pool-scoped authorization and lifecycle state, a synthetic three-segment mapping
+test, then metadata/SDN integration and SES acceptance. P1–P5 in that document are
+planned work, not completed M5/M6 milestones. The pool model preserves the
+existing SAE-based 014 interface and delegates provider pairing to EAGLE-1.
+
 M7 remains partial: provider attestation ingestion, signing rotation/archive,
 application usage receipts, incident holds/remediation, bandwidth/priority
 scheduling, controller service provisioning and agreed 021/023 draft integration
