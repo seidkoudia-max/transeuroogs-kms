@@ -160,3 +160,13 @@ These are software/profile tests. Full TeraFlow service provisioning, real
 controller failover, 021/023 models, real equipment telemetry, SES/IDQ interfaces
 and independent conformance evidence remain separate acceptance work. See the
 [deployment bundle](../deploy/teraflow/README.md).
+
+The [Luxembourg extension](../deploy/luxembourg/README.md) attaches four synthetic
+KMS endpoints to that controller. ETSI 020 crosses the two logical domains only
+inside the co-located JFK trusted site. Both geographic link failures and relay
+restarts are injected; Betzdorf allocation changes use real NBI/Device calls,
+with independent node revisions and controller-independent key delivery.
+Received provenance remains `unknown`, so requiring verified evidence blocks
+delivery. The controller topology is device inventory, not physical QKD provisioning
+or a distributed policy transaction. IDQ/QUKY ingestion and QKD-protected relay
+are still pending.

@@ -1,0 +1,62 @@
+{
+  "profile": "luxembourg-two-link-synthetic-v1",
+  "namespace": "transeuroogs-lux",
+  "association": {
+    "master": "SAE-WINDHOF",
+    "slave": "SAE-BETZDORF"
+  },
+  "app_id": "0a44dea9-3076-4e99-b01f-41a042462a9a",
+  "nodes": [
+    {
+      "name": "windhof",
+      "label": "Windhof HITEC OGS — IDQ Clavis",
+      "site": "Windhof HITEC OGS",
+      "domain": "idq-link-lab",
+      "node_id": "c238d57e-9f82-4af9-8b72-b88e2415f871"
+    },
+    {
+      "name": "jfk-idq",
+      "label": "JFK Kirchberg — IDQ endpoint",
+      "site": "JFK Kirchberg trusted node",
+      "domain": "idq-link-lab",
+      "node_id": "f6f54979-988d-4847-926e-c8f8ea3ab02f"
+    },
+    {
+      "name": "jfk-tq",
+      "label": "JFK Kirchberg — ThinkQuantum endpoint",
+      "site": "JFK Kirchberg trusted node",
+      "domain": "thinkquantum-link-lab",
+      "node_id": "ea298613-2ef6-4bf4-84b7-3074ff5fe8d4"
+    },
+    {
+      "name": "betzdorf",
+      "label": "Betzdorf SES — ThinkQuantum QUKY",
+      "site": "Betzdorf SES premises",
+      "domain": "thinkquantum-link-lab",
+      "node_id": "033582ba-ad0c-488e-8b2f-2ed58218a613"
+    }
+  ],
+  "links": [
+    {
+      "from": "windhof",
+      "to": "jfk-idq",
+      "mode": "lab-relay",
+      "provider": "IDQ Clavis through Clarion KX/Q-KMS",
+      "hardware_connected": false
+    },
+    {
+      "from": "jfk-idq",
+      "to": "jfk-tq",
+      "mode": "etsi020",
+      "provider": "Co-located trusted interworking at JFK",
+      "hardware_connected": false
+    },
+    {
+      "from": "jfk-tq",
+      "to": "betzdorf",
+      "mode": "lab-relay",
+      "provider": "ThinkQuantum QUKY ETSI 014",
+      "hardware_connected": false
+    }
+  ]
+}
