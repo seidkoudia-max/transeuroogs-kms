@@ -62,6 +62,13 @@ no ID translation, hashing of key material into an ID, or independent renaming.
 One downstream application pair maps to one upstream gateway pair per process;
 sharing one gateway pair between unrelated application pairs is not supported.
 
+The proposed [OGS pool model](KEY_POOL_DESIGN.md) makes the pool/service context
+explicit without replacing KIDs or SAE authorization. Each OGS owns its local
+pool namespace; the two endpoints need an authenticated mapping for each final
+key service. Whether SES exposes an explicit pool ID or binds pools through
+gateway SAE pairs remains an interface-agreement question. No pool-ID
+synchronization endpoint is assumed or currently implemented.
+
 **Pairing and notification are different.** Eagle-1 owns corresponding keys and
 IDs in its service. The consuming application must still identify which key was
 selected. [ETSI 014, section 4](https://www.etsi.org/deliver/etsi_gs/QKD/001_099/014/01.01.01_60/gs_qkd014v010101p.pdf)

@@ -30,6 +30,11 @@ test fixture for application delivery, not a transport across QCI domains.
 Synthetic ingestion binds a key to an ordered SAE pair in advance; dynamic
 pool-to-association assignment is deferred.
 
+The project owner's OGS-domain pool clarification is captured in
+[KEY_POOL_DESIGN](KEY_POOL_DESIGN.md): a namespace per OGS, final-key pools scoped
+to a peer/service, and trusted correspondence between endpoint pools. This is a
+design target; explicit pool selection and synchronization are not implemented.
+
 ## Interworking architecture
 
 The project owner confirmed that our gateway is authorised and the SES-provided,
