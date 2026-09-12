@@ -111,7 +111,9 @@ func (t Transfer) Validate() error {
 		return core.ErrInvalid
 	}
 	if len(t.Mandatory) > 0 {
-		return Unsupported("unsupported_mandatory_extension")
+		if _, ok := t.Mandatory[PoolExtension]; !ok || len(t.Mandatory) != 1 {
+			return Unsupported("unsupported_mandatory_extension")
+		}
 	}
 	if t.Callback == "" {
 		return Unsupported("synchronous_mode")

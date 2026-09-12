@@ -3,6 +3,7 @@ package peering
 
 import (
 	"errors"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/upstream"
 	"net/url"
 	"slices"
 	"strings"
@@ -10,25 +11,31 @@ import (
 
 const Standard = "etsi020"
 const LabRelay = "lab-relay"
+const QKDRelay = "qkd-jwe-v1"
 
 type Peer struct {
-	URL      string `json:"url"`
-	Identity string `json:"identity"`
-	Mode     string `json:"mode"`
-	Incoming bool   `json:"incoming"`
+	Link     *upstream.Config `json:"link_key_source,omitempty"`
+	URL      string           `json:"url"`
+	Identity string           `json:"identity"`
+	Mode     string           `json:"mode"`
+	Incoming bool             `json:"incoming"`
 }
 
 type Config struct {
-	PublicURL  string              `json:"public_url"`
-	Identity   string              `json:"identity"`
-	StateDir   string              `json:"state_dir"`
-	LocalSAEs  []string            `json:"local_saes"`
-	Peers      map[string]Peer     `json:"peers"`
-	Routes     map[string][]string `json:"routes"`
-	TargetKMEs map[string]string   `json:"target_kmes"`
+	QKDStateDir string              `json:"qkd_state_dir,omitempty"`
+	PublicURL   string              `json:"public_url"`
+	Identity    string              `json:"identity"`
+	StateDir    string              `json:"state_dir"`
+	LocalSAEs   []string            `json:"local_saes"`
+	Peers       map[string]Peer     `json:"peers"`
+	Routes      map[string][]string `json:"routes"`
+	TargetKMEs  map[string]string   `json:"target_kmes"`
 }
 
 func Base(mode string) string {
+	if mode == QKDRelay {
+		return "/qkd/v1/ext_keys"
+	}
 	if mode == LabRelay {
 		return "/lab/v1/relay/keys"
 	}
@@ -36,6 +43,9 @@ func Base(mode string) string {
 }
 
 func Versions(mode string) string {
+	if mode == QKDRelay {
+		return "/qkd/versions"
+	}
 	if mode == LabRelay {
 		return "/lab/versions"
 	}
@@ -55,7 +65,14 @@ func (c Config) Validate() error {
 	seen := map[string]bool{c.Identity: true}
 	urls := map[string]bool{c.PublicURL: true}
 	for id, p := range c.Peers {
-		if id == "" || !validURL(p.URL) || !strings.HasPrefix(p.Identity, "urn:") || seen[p.Identity] || urls[p.URL] || (p.Mode != Standard && p.Mode != LabRelay) {
+		if id == "" || !validURL(p.URL) || !strings.HasPrefix(p.Identity, "urn:") || seen[p.Identity] || urls[p.URL] || (p.Mode != Standard && p.Mode != LabRelay && p.Mode != QKDRelay) {
+			return bad
+		}
+		if p.Mode == QKDRelay {
+			if p.Link == nil || p.Link.Validate() != nil || (p.Link.Profile != upstream.Profile && p.Link.Profile != upstream.LinkProfile) || c.QKDStateDir == "" || c.QKDStateDir == c.StateDir || (p.Incoming && p.Link.Role != "slave") {
+				return bad
+			}
+		} else if p.Link != nil {
 			return bad
 		}
 		seen[p.Identity], urls[p.URL] = true, true
@@ -73,6 +90,9 @@ func (c Config) Validate() error {
 		}
 		for i, id := range route {
 			if _, ok := c.Peers[id]; !ok || slices.Contains(route[:i], id) {
+				return bad
+			}
+			if p := c.Peers[id]; p.Mode == QKDRelay && p.Link.Role != "master" {
 				return bad
 			}
 		}

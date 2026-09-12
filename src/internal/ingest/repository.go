@@ -14,6 +14,7 @@ import (
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/allocation"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/durable"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/federation"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/upstream"
 )
 
@@ -23,6 +24,7 @@ type Provider interface {
 	Inventory() (core.Inventory, error)
 }
 type key struct {
+	Pool     core.PoolRef `json:",omitzero"`
 	ID       core.KeyID
 	Material []byte
 	State    core.State
@@ -30,13 +32,16 @@ type key struct {
 	Expires  time.Time
 }
 type request struct {
-	IDs     []core.KeyID
-	Count   int
-	Status  string
-	Started time.Time
-	Expires time.Time
+	Pool      core.PoolRef `json:",omitzero"`
+	Reference core.KeyID   `json:",omitempty"`
+	IDs       []core.KeyID
+	Count     int
+	Status    string
+	Started   time.Time
+	Expires   time.Time
 }
 type state struct {
+	Protection *federation.State `json:",omitempty"`
 	Allocation *allocation.State `json:",omitempty"`
 	Version    int
 	Binding    string
@@ -69,6 +74,10 @@ func Open(c upstream.Config, a core.Association, capacity int, p Provider) (*Rep
 
 // OpenStore takes ownership of a persistence implementation and recovered state.
 func OpenStore(c upstream.Config, a core.Association, capacity int, p Provider, j durable.Store, raw []byte, options ...*allocation.Setup) (*Repository, error) {
+	return OpenStoreControlled(c, a, capacity, p, j, raw, nil, options...)
+}
+
+func OpenStoreControlled(c upstream.Config, a core.Association, capacity int, p Provider, j durable.Store, raw []byte, controls *federation.Config, options ...*allocation.Setup) (*Repository, error) {
 	defer clear(raw)
 	success := false
 	defer func() {
@@ -78,6 +87,26 @@ func OpenStore(c upstream.Config, a core.Association, capacity int, p Provider, 
 	}()
 	if c.Validate() != nil || !a.Valid() || capacity < 1 || capacity > 100000 || p == nil || j == nil || !durable.PlainSnapshot(raw) || len(options) > 1 {
 		return nil, core.ErrInvalid
+	}
+	if c.Profile == upstream.LinkProfile || (c.Profile == upstream.FinalProfile && controls == nil) {
+		return nil, core.ErrInvalid
+	}
+	if controls != nil {
+		if len(controls.Pools) != 1 {
+			return nil, core.ErrInvalid
+		}
+		pool := controls.Pools[0]
+		if pool.Association != a || pool.Provider != c.ServerIdentity || pool.Gateways != (core.Association{Master: c.GatewayMaster, Slave: c.GatewaySlave}) {
+			return nil, core.ErrInvalid
+		}
+		if c.Profile == upstream.FinalProfile {
+			contract := pool.Contract
+			if contract.Mode != "ses-reviewed" || contract.APIProfile != upstream.FinalProfile || contract.Agreement != c.Agreement || contract.PoolSelection != "gateway-pair" || contract.FinalRelease != "paired-final-keys-only" || contract.Evidence != federation.EvidenceProfile || !pool.RequireEvidence || len(controls.Trust) == 0 || contract.MaxKeyAgeSeconds == nil || c.LifetimeSeconds > *contract.MaxKeyAgeSeconds {
+				return nil, core.ErrInvalid
+			}
+		} else if pool.Contract.Mode == "ses-reviewed" {
+			return nil, core.ErrInvalid
+		}
 	}
 	binding, _ := json.Marshal(struct {
 		Config   upstream.Config
@@ -120,10 +149,32 @@ func OpenStore(c upstream.Config, a core.Association, capacity int, p Provider, 
 			}
 		}
 	}
+	r.s.Protection, err = federation.Open(controls, r.s.Protection, raw != nil, []core.Association{a})
+	if err != nil {
+		return nil, durable.ErrState
+	}
 	r.s.Allocation, err = allocation.Open(r.setup, r.s.Allocation, raw != nil)
 	if err != nil {
 		r.Close()
 		return nil, durable.ErrState
+	}
+	for _, k := range r.s.Keys {
+		if k.Pool != r.s.Protection.Ref(r.pair) {
+			return nil, durable.ErrState
+		}
+	}
+	for _, q := range r.s.Requests {
+		if q.Pool != r.s.Protection.Ref(r.pair) {
+			return nil, durable.ErrState
+		}
+	}
+	if r.s.Protection != nil {
+		for id, v := range r.s.Protection.Reconciliations {
+			if v.Status == "query_pending" {
+				v.Status = "unknown"
+				r.s.Protection.Reconciliations[id] = v
+			}
+		}
 	}
 	if err = r.expire(); err == nil {
 		err = r.save()
@@ -171,11 +222,19 @@ func (r *Repository) check(a core.Association, role string) error {
 	if a != r.pair || r.cfg.Role != role {
 		return core.ErrUnauthorized
 	}
+	if r.s.Protection.Gate(a) != "" {
+		return core.ErrUnavailable
+	}
 	return r.expire()
 }
 func (r *Repository) begin(n int, ids []core.KeyID) (core.KeyID, *request, error) {
 	if n < 1 || n > core.MaxBatch {
 		return "", nil, core.ErrInvalid
+	}
+	if p, ok := r.s.Protection.Pool(r.pair); ok && p.RequireEvidence {
+		if _, ok := r.provider.(EvidenceProvider); !ok {
+			return "", nil, core.ErrUnavailable
+		}
 	}
 	if r.s.Attempts+n > r.capacity {
 		return "", nil, core.ErrCapacity
@@ -185,11 +244,11 @@ func (r *Repository) begin(n int, ids []core.KeyID) (core.KeyID, *request, error
 		token = core.NewID()
 	}
 	now := r.now()
-	q := &request{IDs: slices.Clone(ids), Count: n, Status: "pending", Started: now, Expires: now.Add(time.Duration(r.cfg.LifetimeSeconds) * time.Second)}
+	q := &request{Pool: r.s.Protection.Ref(r.pair), Reference: core.NewID(), IDs: slices.Clone(ids), Count: n, Status: "pending", Started: now, Expires: now.Add(time.Duration(r.cfg.LifetimeSeconds) * time.Second)}
 	r.s.Requests[token] = q
 	r.s.Attempts += n
 	for _, id := range ids {
-		r.s.Keys[id] = &key{ID: id, State: core.Reserved, Created: now, Expires: q.Expires}
+		r.s.Keys[id] = &key{Pool: q.Pool, ID: id, State: core.Reserved, Created: now, Expires: q.Expires}
 	}
 	if err := r.save(); err != nil {
 		return "", nil, err
@@ -254,23 +313,26 @@ func (r *Repository) ReserveKeys(a core.Association, n int) (core.Reservation, e
 	if err != nil {
 		return core.Reservation{}, err
 	}
-	keys, err := r.provider.Allocate(n)
+	keys, err := r.allocate(q, n)
 	defer wipe(keys)
 	if err != nil || !r.validate(q, keys, false) {
 		return core.Reservation{}, r.uncertain(q)
 	}
 	for _, k := range keys {
 		q.IDs = append(q.IDs, k.ID)
-		r.s.Keys[k.ID] = &key{ID: k.ID, Material: slices.Clone(k.Material), State: core.Reserved, Created: q.Started, Expires: q.Expires}
+		r.s.Keys[k.ID] = &key{Pool: q.Pool, ID: k.ID, Material: slices.Clone(k.Material), State: core.Reserved, Created: q.Started, Expires: q.Expires}
+	}
+	if r.collectEvidence(q) != nil {
+		return core.Reservation{}, r.uncertain(q)
 	}
 	q.Status = "stored"
-	if r.policy(n, q.Started, q.Expires) != "" {
+	if r.policy(n, q.Started, q.Expires, q.IDs...) != "" {
 		return core.Reservation{}, r.uncertain(q)
 	}
 	if err := r.save(); err != nil {
 		return core.Reservation{}, err
 	}
-	return core.Reservation{Token: token, IDs: slices.Clone(q.IDs)}, nil
+	return core.Reservation{Pool: q.Pool, Token: token, IDs: slices.Clone(q.IDs)}, nil
 }
 
 func (r *Repository) ConsumeReservation(a core.Association, token core.KeyID) ([]core.Delivery, error) {
@@ -283,12 +345,12 @@ func (r *Repository) ConsumeReservation(a core.Association, token core.KeyID) ([
 	if q == nil || q.Status != "stored" || !r.now().Before(q.Expires) {
 		return nil, core.ErrUnavailable
 	}
-	if r.policy(q.Count, q.Started, q.Expires) != "" {
+	if r.policy(q.Count, q.Started, q.Expires, q.IDs...) != "" {
 		return nil, core.ErrUnavailable
 	}
 	for _, id := range q.IDs {
 		k := r.s.Keys[id]
-		if k == nil || k.State != core.Reserved || len(k.Material) != core.KeyBits/8 {
+		if k == nil || k.Pool != q.Pool || r.s.Protection.Check(a, id, r.now()) != "" || k.State != core.Reserved || len(k.Material) != core.KeyBits/8 {
 			return nil, core.ErrUnavailable
 		}
 	}
@@ -334,12 +396,15 @@ func (r *Repository) ConsumePeerKeys(a core.Association, ids []core.KeyID) ([]co
 	if err != nil {
 		return nil, err
 	}
-	keys, err := r.provider.Retrieve(slices.Clone(ids))
+	keys, err := r.retrieve(q, slices.Clone(ids))
 	defer wipe(keys)
 	if err != nil || !r.validate(q, keys, true) {
 		return nil, r.uncertain(q)
 	}
-	if r.policy(len(ids), q.Started, q.Expires) != "" {
+	if r.collectEvidence(q) != nil {
+		return nil, r.uncertain(q)
+	}
+	if r.policy(len(ids), q.Started, q.Expires, q.IDs...) != "" {
 		return nil, r.uncertain(q)
 	}
 	byID := map[core.KeyID][]byte{}
@@ -390,7 +455,7 @@ func (r *Repository) Metadata(id core.KeyID) (core.Metadata, error) {
 	if k == nil {
 		return core.Metadata{}, core.ErrUnavailable
 	}
-	m := core.Metadata{ID: id, Association: r.pair, Source: r.cfg.URL, CreatedAt: k.Created, ExpiresAt: k.Expires, MasterState: core.Invalid, SlaveState: core.Invalid}
+	m := core.Metadata{Pool: k.Pool, ID: id, Association: r.pair, Source: r.cfg.URL, CreatedAt: k.Created, ExpiresAt: k.Expires, MasterState: core.Invalid, SlaveState: core.Invalid}
 	if r.cfg.Role == "master" {
 		m.MasterState = k.State
 	} else {

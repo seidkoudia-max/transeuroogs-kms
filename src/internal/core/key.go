@@ -67,6 +67,7 @@ func validName(s string) bool {
 }
 
 type Key struct {
+	Pool        PoolRef `json:",omitzero"`
 	ID          KeyID
 	Material    []byte `json:"-"`
 	Association Association
@@ -79,7 +80,7 @@ func (k Key) String() string   { return fmt.Sprintf("Key{id=%s material=[REDACTE
 func (k Key) GoString() string { return k.String() }
 
 func (k Key) Validate(now time.Time) error {
-	if !k.ID.Valid() || len(k.Material)*8 != KeyBits || !k.Association.Valid() || !validName(k.Source) || k.CreatedAt.IsZero() || k.CreatedAt.After(now) || !k.ExpiresAt.After(now) || !k.ExpiresAt.After(k.CreatedAt) {
+	if (!k.Pool.Empty() && !k.Pool.Valid()) || !k.ID.Valid() || len(k.Material)*8 != KeyBits || !k.Association.Valid() || !validName(k.Source) || k.CreatedAt.IsZero() || k.CreatedAt.After(now) || !k.ExpiresAt.After(now) || !k.ExpiresAt.After(k.CreatedAt) {
 		return ErrInvalid
 	}
 	return nil
@@ -94,6 +95,7 @@ func (d Delivery) String() string   { return fmt.Sprintf("Delivery{id=%s materia
 func (d Delivery) GoString() string { return d.String() }
 
 type Metadata struct {
+	Pool        PoolRef `json:",omitzero"`
 	ID          KeyID
 	Association Association
 	Source      string
@@ -104,6 +106,7 @@ type Metadata struct {
 }
 
 type Reservation struct {
+	Pool  PoolRef `json:",omitzero"`
 	Token KeyID
 	IDs   []KeyID
 }

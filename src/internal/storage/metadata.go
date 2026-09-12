@@ -23,7 +23,7 @@ func ProjectMetadata(raw []byte) (metadata.Projection, error) {
 	}
 	for id, k := range s.Keys {
 		m := k.Meta
-		r := metadata.Record{Key: metadata.KeyRef{ID: id, Association: m.Association}, SourceClass: "unknown", SourceEvidence: "unknown", CollectionIntent: m.CreatedAt, LocalExpiresAt: m.ExpiresAt, Role: "local", MasterState: m.MasterState, SlaveState: m.SlaveState, HoldingMaterial: len(k.MasterMaterial) > 0 || len(k.SlaveMaterial) > 0}
+		r := metadata.Record{Key: metadata.KeyRef{Pool: m.Pool, ID: id, Association: m.Association}, SourceClass: "unknown", SourceEvidence: "unknown", CollectionIntent: m.CreatedAt, LocalExpiresAt: m.ExpiresAt, Role: "local", MasterState: m.MasterState, SlaveState: m.SlaveState, HoldingMaterial: len(k.MasterMaterial) > 0 || len(k.SlaveMaterial) > 0}
 		if m.Source == "synthetic-qkd" {
 			r.SourceClass = "synthetic"
 			r.SourceEvidence = "local_observation"
@@ -32,5 +32,6 @@ func ProjectMetadata(raw []byte) (metadata.Projection, error) {
 		}
 		p.Keys[id] = r
 	}
+	metadata.ProjectProtection(&p, s.Protection)
 	return p, nil
 }

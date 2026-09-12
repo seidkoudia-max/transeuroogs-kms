@@ -1,0 +1,62 @@
+{
+  "kme_id": "LU-KMS",
+  "capacity": 128,
+  "identities": {
+    "urn:transeuroogs:sae:sae-lu": "SAE-LU",
+    "urn:transeuroogs:sae:sae-gr": "SAE-GR"
+  },
+  "associations": [
+    {
+      "master": "SAE-LU",
+      "slave": "SAE-GR"
+    }
+  ],
+  "federation": {
+    "profile": "transeuroogs-federation-v1",
+    "state_dir": ".local/federation-pending",
+    "pools": [
+      {
+        "binding": {
+          "pool_id": "LU/OGS/to-GR/final",
+          "remote_pool_id": "GR/OGS/to-LU/final",
+          "binding_revision": 1,
+          "service_id": "synthetic-LU-GR-final",
+          "service_epoch": "lab-1",
+          "purpose": "application-tls"
+        },
+        "domain_id": "LU",
+        "ogs_id": "OGS-LU",
+        "remote_domain_id": "GR",
+        "remote_ogs_id": "OGS-GR",
+        "association": {
+          "master": "SAE-LU",
+          "slave": "SAE-GR"
+        },
+        "provider_identity": "urn:transeuroogs:kme:eagle-lu",
+        "gateway_pair": {
+          "master": "GW-LU",
+          "slave": "GW-GR"
+        },
+        "mapping_authority": "synthetic-provisioning",
+        "contract": {
+          "mode": "ses-pending",
+          "retention_seconds": null,
+          "max_key_age_seconds": null,
+          "clock_uncertainty_ms": null
+        },
+        "require_provider_evidence": true,
+        "max_generation_age_seconds": 0
+      }
+    ],
+    "principals": {
+      "urn:transeuroogs:sae:unknown-sae": {
+        "pools": [
+          "LU/OGS/to-GR/final"
+        ],
+        "operate": true
+      }
+    },
+    "provider_trust": [],
+    "max_actions": 128
+  }
+}

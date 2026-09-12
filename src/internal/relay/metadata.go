@@ -28,7 +28,7 @@ func ProjectMetadata(c peering.Config) metadata.Projector {
 			if k == nil {
 				return p, core.ErrInvalid
 			}
-			r := metadata.Record{Key: metadata.KeyRef{ID: id, Association: k.Pair}, SourceClass: "unknown", SourceEvidence: "unknown", CollectionIntent: k.Created, LocalExpiresAt: k.Expires, Role: k.Role, HoldingMaterial: len(k.Material) > 0, TransferIntent: k.Sent, Ready: k.Ready, Voiding: k.Voiding, Uncertain: k.Unknown}
+			r := metadata.Record{Key: metadata.KeyRef{Pool: k.Pool, ID: id, Association: k.Pair}, SourceClass: "unknown", SourceEvidence: "unknown", CollectionIntent: k.Created, LocalExpiresAt: k.Expires, Role: k.Role, HoldingMaterial: len(k.Material) > 0, TransferIntent: k.Sent, Ready: k.Ready, Voiding: k.Voiding, Uncertain: k.Unknown}
 			if peer, ok := c.Peers[k.Sender]; ok {
 				r.Upstream = peer.Identity
 			}
@@ -58,6 +58,7 @@ func ProjectMetadata(c peering.Config) metadata.Projector {
 			}
 			p.Keys[id] = r
 		}
+		metadata.ProjectProtection(&p, s.Protection)
 		return p, nil
 	}
 }

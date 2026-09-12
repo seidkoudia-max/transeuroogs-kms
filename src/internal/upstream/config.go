@@ -10,7 +10,14 @@ import (
 
 const Profile = "synthetic-segmented-v1"
 
+// FinalProfile is a deliberately bounded 014 adapter, not a claim of SES conformance.
+const FinalProfile = "etsi014-final-uuidv4-256-v1"
+
+const LinkProfile = "etsi014-link-uuidv4-256-v1"
+
 type Config struct {
+	EvidenceDir     string `json:"evidence_dir,omitempty"`
+	Agreement       string `json:"interface_agreement,omitempty"`
 	Profile         string `json:"profile"`
 	URL             string `json:"url"`
 	ServerIdentity  string `json:"server_identity"`
@@ -30,7 +37,7 @@ func (c Config) Validate() error {
 	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
 		return core.ErrInvalid
 	}
-	if c.Profile != Profile || (c.Role != "master" && c.Role != "slave") || c.StateDir == "" || c.PKIDir == "" || c.CertificateName == "" || strings.ContainsAny(c.CertificateName, "/\\") || c.CertificateName == "." || c.CertificateName == ".." || c.RemoteKMEID == "" || c.LifetimeSeconds < 1 || c.LifetimeSeconds > 86400 {
+	if (c.Profile != Profile && (c.Agreement == "" || (c.Profile != LinkProfile && (c.Profile != FinalProfile || c.EvidenceDir == "")))) || (c.Role != "master" && c.Role != "slave") || c.StateDir == "" || c.PKIDir == "" || c.CertificateName == "" || strings.ContainsAny(c.CertificateName, "/\\") || c.CertificateName == "." || c.CertificateName == ".." || c.RemoteKMEID == "" || c.LifetimeSeconds < 1 || c.LifetimeSeconds > 86400 {
 		return core.ErrInvalid
 	}
 	if !(core.Association{Master: c.GatewayMaster, Slave: c.GatewaySlave}).Valid() {

@@ -57,3 +57,9 @@ app-test:
 
 operational-demo:
 	$(APP_PYTHON) tests/operational_acceptance.py --go $(GO)
+
+.PHONY: federation-demo
+federation-demo: build
+	$(GO) build -trimpath -o .local/bin/eagle-emulator ./src/cmd/eagle-emulator
+	$(GO) build -trimpath -o .local/bin/test-pki ./src/cmd/test-pki
+	$(PYTHON) emulator/eagle1-kms/demo.py --binary .local/bin/kms --emulator .local/bin/eagle-emulator --pki-binary .local/bin/test-pki --federation

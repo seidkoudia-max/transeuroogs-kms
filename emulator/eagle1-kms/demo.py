@@ -113,6 +113,20 @@ def exercise(args, directory, procs):
                 "pki_dir": str(pki["ses"]), "certificate_name": site, "lifetime_seconds": 60,
             },
         }
+        if args.federation:
+            peer = "gr" if site == "lu" else "lu"
+            pool_id = site.upper() + "/OGS/to-" + peer.upper() + "/final"
+            cfg["federation"] = {
+                "profile": "transeuroogs-federation-v1", "max_actions": 128,
+                "principals": {"urn:transeuroogs:sae:unknown-sae": {"pools": [pool_id], "operate": True}},
+                "provider_trust": [], "pools": [{
+                    "binding": {"pool_id": pool_id, "remote_pool_id": peer.upper() + "/OGS/to-" + site.upper() + "/final",
+                                "binding_revision": 1 if site == "lu" else 3, "service_id": "synthetic-LU-GR-final",
+                                "service_epoch": "lab-1", "purpose": "application-tls"},
+                    "domain_id": site.upper(), "ogs_id": "OGS-" + site.upper(), "remote_domain_id": peer.upper(), "remote_ogs_id": "OGS-" + peer.upper(),
+                    "association": cfg["associations"][0], "provider_identity": cfg["eagle"]["server_identity"],
+                    "gateway_pair": {"master": "GW-LU", "slave": "GW-GR"}, "mapping_authority": "synthetic-provisioning",
+                    "contract": {"mode": "synthetic"}, "require_provider_evidence": False, "max_generation_age_seconds": 0}]}
         if metadata:
             metadata.configure(cfg, site)
         path = directory / (site + ".json")
@@ -147,6 +161,28 @@ def exercise(args, directory, procs):
             break
         require(time.monotonic() < deadline, "Final-key inventory never became available")
         time.sleep(0.05)
+    if args.federation:
+        import uuid
+        operator = context(pki["lu"], pki["lu"], "unknown-sae")
+        code, view = local("lu", "/federation/v1/state")
+        require(code == 200 and len(view["pools"]) == 1 and len(view["pools"][0]["needed_SES_input"]) == 10, "Missing SES inputs not exposed")
+        incident = str(uuid.uuid4())
+        command = {"action_id": str(uuid.uuid4()), "incident_id": incident, "pool_id": "LU/OGS/to-GR/final",
+                   "expected_revision": 0, "operation": "hold", "reason": "synthetic incident exercise"}
+        code, _ = local("lu", "/federation/v1/actions", command)
+        require(code == 403, "Application gained operator authority")
+        for _ in range(2):
+            code, result = local("lu", "/federation/v1/actions", command, ctx=operator)
+            require(code == 200 and result["revision"] == 1, "Incident hold or exact replay failed")
+        code, _ = local("lu", "/api/v1/keys/SAE-GR/enc_keys", {"number": 1})
+        require(code == 503, "Hold did not stop allocation")
+        procs.crash("lu")
+        urls["lu"] = "https://" + procs.start("lu", configs["lu"])["address"]
+        code, _ = local("lu", "/api/v1/keys/SAE-GR/enc_keys", {"number": 1})
+        require(code == 503, "Restart lost incident hold")
+        command.update(action_id=str(uuid.uuid4()), expected_revision=1, operation="release")
+        code, _ = local("lu", "/federation/v1/actions", command, ctx=operator)
+        require(code == 200, "Hold release failed")
     seen, previous = set(), None
     for batch in range(count // 8):
         code, first = local("lu", "/api/v1/keys/SAE-GR/enc_keys", {"number": 8})
@@ -180,7 +216,7 @@ def exercise(args, directory, procs):
     print(json.dumps({"result": "PASS", "matching_keys": len(seen), "independent_trust_domains": 3,
                       "local_authentication": True, "kid_preserved": True, "delayed_availability": True,
                       "replay_rejected_after_restart": True, "slave_works_with_master_kms_offline": True,
-                      "satellite_cryptography_simulated": False}))
+                      "satellite_cryptography_simulated": False, "pool_and_incident_controls": args.federation}))
 
 
 def main():
@@ -189,6 +225,7 @@ def main():
     parser.add_argument("--emulator", required=True, type=pathlib.Path)
     parser.add_argument("--pki-binary", required=True, type=pathlib.Path)
     parser.add_argument("--metadata-binary", type=pathlib.Path)
+    parser.add_argument("--federation", action="store_true")
     args = parser.parse_args()
     for field in ("binary", "emulator", "pki_binary"):
         setattr(args, field, getattr(args, field).resolve())

@@ -54,8 +54,9 @@ func New(manager allocation.Manager, config allocation.Config, identities map[st
 				"etsi015_read":  []string{"qkdn_id", "qkdn_version", "qkdn_location_id", "qkdn_capabilities", "qkd_applications"},
 				"etsi015_write": []string{"preconfigured_application/app_qos/ttl (1..2678400 seconds)"},
 				"etsi021":       "draft_0.0.1; interface_not_implemented", "etsi023": "draft_0.0.6; interface_not_implemented",
+				"pool_binding": "configured; immutable_per_journal", "provider_evidence": "scoped_project_JWS; SES_adapter_input_pending",
 				"commands": []string{"association_rule", "local_ttl", "configured_routes"}, "monitoring": "scoped_local_snapshot_polling",
-				"unsupported": []string{"physical_QKD_control", "application_creation", "bandwidth_guarantees", "priority_scheduling", "notifications", "provider_attestation"},
+				"unsupported": []string{"physical_QKD_control", "application_creation", "bandwidth_guarantees", "priority_scheduling", "notifications"},
 			})
 			return
 		}

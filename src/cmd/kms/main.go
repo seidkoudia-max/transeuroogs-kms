@@ -26,11 +26,14 @@ import (
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/durable"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/etsi014"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/etsi020"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/fedapi"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/federation"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/ingest"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/metadata"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/metapi"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/peering"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/postgres"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/qkdrelay"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/relay"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/sdnapi"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/security"
@@ -131,6 +134,23 @@ func run() error {
 		managed = history
 		defer history.Close()
 	}
+	if managed == nil && c.Federation != nil {
+		dir, ctx := c.Federation.StateDir, "transeuroogs-local-federation-v1"
+		if c.Eagle != nil {
+			dir, ctx = c.Eagle.StateDir, "transeuroogs-segmented-ingestion-v1"
+		}
+		if c.InterKMS != nil {
+			dir, ctx = c.InterKMS.StateDir, "transeuroogs-relay-state-v1"
+		}
+		managed, recovered, err = durable.Open(dir, ctx)
+		if err != nil {
+			return err
+		}
+		defer managed.Close()
+		if *count > 0 && recovered != nil {
+			return fmt.Errorf("synthetic provisioning requires fresh federation state")
+		}
+	}
 	if managed != nil && c.Eagle == nil && c.InterKMS == nil {
 		binding, _ := json.Marshal(struct {
 			KME        string
@@ -139,7 +159,7 @@ func run() error {
 			Local      []string
 		}{c.KMEID, c.Associations, c.Identities, c.LocalSAEs})
 		hash := sha256.Sum256(binding)
-		persistent, e := storage.OpenPersistent(c.Capacity, hex.EncodeToString(hash[:]), managed, recovered, policy)
+		persistent, e := storage.OpenPersistentControlled(c.Capacity, hex.EncodeToString(hash[:]), managed, recovered, c.Federation, policy)
 		if e != nil {
 			return e
 		}
@@ -147,6 +167,7 @@ func run() error {
 		repo = persistent
 	}
 	var engine *relay.Engine
+	var protected *qkdrelay.Bridge
 	var ingestion *ingest.Repository
 	if c.Eagle != nil {
 		if *count != 0 {
@@ -174,10 +195,14 @@ func run() error {
 			return e
 		}
 		defer client.Close()
+		var provider ingest.Provider = client
+		if u.EvidenceDir != "" {
+			provider = &ingest.EvidenceFiles{Provider: client, Directory: u.EvidenceDir}
+		}
 		if managed != nil {
-			ingestion, e = ingest.OpenStore(*u, c.Associations[0], c.Capacity, client, managed, recovered, policy)
+			ingestion, e = ingest.OpenStoreControlled(*u, c.Associations[0], c.Capacity, provider, managed, recovered, c.Federation, policy)
 		} else {
-			ingestion, e = ingest.Open(*u, c.Associations[0], c.Capacity, client)
+			ingestion, e = ingest.Open(*u, c.Associations[0], c.Capacity, provider)
 		}
 		if e != nil {
 			return e
@@ -211,10 +236,20 @@ func run() error {
 			return e
 		}
 		defer client.Close()
+		var transport etsi020.Transport = client
+		if c.InterKMS.QKDStateDir != "" {
+			var cleanup func()
+			protected, cleanup, e = openQKD(c)
+			if e != nil {
+				return e
+			}
+			defer cleanup()
+			transport = &qkdrelay.Transport{Client: client, Bridge: protected, Config: *c.InterKMS}
+		}
 		if managed != nil {
-			engine, e = relay.OpenStore(*c.InterKMS, c.Associations, c.Capacity, client, managed, recovered, policy)
+			engine, e = relay.OpenStoreControlled(*c.InterKMS, c.Associations, c.Capacity, transport, managed, recovered, c.Federation, policy)
 		} else {
-			engine, e = relay.Open(*c.InterKMS, c.Associations, c.Capacity, client)
+			engine, e = relay.Open(*c.InterKMS, c.Associations, c.Capacity, transport)
 		}
 		if e != nil {
 			return e
@@ -244,6 +279,9 @@ func run() error {
 		mux.Handle("/", handler)
 		mux.Handle("/kmapi/", etsi020.Handler(engine, *c.InterKMS, peering.Standard))
 		mux.Handle("/lab/", etsi020.Handler(engine, *c.InterKMS, peering.LabRelay))
+		if protected != nil {
+			mux.Handle("/qkd/", qkdrelay.Handler(protected, engine, *c.InterKMS))
+		}
 		handler = mux
 	}
 	if history != nil {
@@ -262,6 +300,26 @@ func run() error {
 		mux.Handle("/metadata/", metapi.New(history, apps, c.Associations, c.Metadata.Readers))
 		handler = mux
 	}
+	if c.Federation != nil {
+		manager, ok := repo.(federation.Manager)
+		if !ok {
+			return fmt.Errorf("repository does not support protection controls")
+		}
+		apps := map[string]string{}
+		locals := c.LocalSAEs
+		if c.InterKMS != nil {
+			locals = c.InterKMS.LocalSAEs
+		}
+		for uri, sae := range c.Identities {
+			if (c.InterKMS == nil && len(locals) == 0) || slices.Contains(locals, sae) {
+				apps[uri] = sae
+			}
+		}
+		mux := http.NewServeMux()
+		mux.Handle("/", handler)
+		mux.Handle("/federation/", fedapi.New(manager, *c.Federation, apps))
+		handler = mux
+	}
 	if c.SDN != nil {
 		manager, ok := repo.(allocation.Manager)
 		if !ok {
@@ -276,6 +334,11 @@ func run() error {
 	}
 	if c.Operational != nil {
 		ids := []string{}
+		if c.Federation != nil {
+			for id := range c.Federation.Principals {
+				ids = append(ids, id)
+			}
+		}
 		if c.SDN != nil {
 			for id := range c.SDN.Principals {
 				ids = append(ids, id)

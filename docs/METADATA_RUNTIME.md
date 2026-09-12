@@ -261,12 +261,17 @@ evidence. No automatic retention, report pagination or archive service exists.
 
 The operational profile audits investigator requests through its existing durable
 guard. The basic journal lab profile has no separate durable inquiry audit. Neither
-profile implements investigator-driven holds, remediation, application notification
-or remote revocation. [SDN_ALLOCATION](SDN_ALLOCATION.md) adds local
+profile grants remediation rights merely because a caller is an investigator.
+The optional [remote-QCI protection](REMOTE_QCI_UPGRADES.md) profile now adds
+separately authorized operator holds/invalidation, terrestrial void propagation,
+application receipts and verified provider-adapter evidence. SES remote actions
+still require its actual agreement. These observations share the signed snapshot
+commit and restricted history. [SDN_ALLOCATION](SDN_ALLOCATION.md) adds local
 freshness/source/issuer/entitlement policy checks, signed command history and
-metadata-only management with a TeraFlow driver. Provider attestation ingestion,
-inline 014/020 metadata negotiation, business session receipts, signing rotation,
-full controller deployment and 021/023 integration remain subsequent increments.
+metadata-only management with a TeraFlow driver and a deployed local controller
+lab. Actual SES evidence translation/acceptance, inline standards-based metadata
+negotiation, commercial application integration, signing rotation, physical
+controller provisioning and 021/023 integration remain subsequent increments.
 
 Run `make check`, `make demo`, `make relay-demo`, `make segmented-demo`,
 `make metadata-demo` and the operational acceptance suite. The metadata demo uses

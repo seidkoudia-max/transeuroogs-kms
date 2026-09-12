@@ -7,6 +7,7 @@ import (
 
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/allocation"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/federation"
 )
 
 type entry struct {
@@ -16,11 +17,13 @@ type entry struct {
 }
 
 type reservation struct {
+	pool        core.PoolRef
 	association core.Association
 	ids         []core.KeyID
 }
 
 type Memory struct {
+	protection   *federation.State
 	allocation   *allocation.State
 	setup        *allocation.Setup
 	mu           sync.Mutex
@@ -46,6 +49,11 @@ func NewMemory(capacity int, clock func() time.Time) (*Memory, error) {
 func (m *Memory) StoreKey(k core.Key) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	ref := m.protection.Ref(k.Association)
+	if (!k.Pool.Empty() && k.Pool != ref) || m.protection.Gate(k.Association) != "" {
+		return core.ErrUnauthorized
+	}
+	k.Pool = ref
 	if err := k.Validate(m.now()); err != nil {
 		return err
 	}
@@ -56,7 +64,7 @@ func (m *Memory) StoreKey(k core.Key) error {
 		return core.ErrCapacity
 	}
 	m.keys[k.ID] = &entry{
-		meta:   core.Metadata{ID: k.ID, Association: k.Association, Source: k.Source, CreatedAt: k.CreatedAt, ExpiresAt: k.ExpiresAt, MasterState: core.Available, SlaveState: core.Reserved},
+		meta:   core.Metadata{Pool: k.Pool, ID: k.ID, Association: k.Association, Source: k.Source, CreatedAt: k.CreatedAt, ExpiresAt: k.ExpiresAt, MasterState: core.Available, SlaveState: core.Reserved},
 		master: append([]byte(nil), k.Material...), slave: append([]byte(nil), k.Material...),
 	}
 	m.order = append(m.order, k.ID)
@@ -111,8 +119,8 @@ func (m *Memory) ReserveKeys(a core.Association, count int) (core.Reservation, e
 	for _, id := range ids {
 		m.keys[id].meta.MasterState = core.Reserved
 	}
-	m.reservations[token] = reservation{association: a, ids: append([]core.KeyID(nil), ids...)}
-	return core.Reservation{Token: token, IDs: ids}, nil
+	m.reservations[token] = reservation{pool: m.protection.Ref(a), association: a, ids: append([]core.KeyID(nil), ids...)}
+	return core.Reservation{Pool: m.protection.Ref(a), Token: token, IDs: ids}, nil
 }
 
 func (m *Memory) ConsumeReservation(a core.Association, token core.KeyID) ([]core.Delivery, error) {
@@ -122,14 +130,14 @@ func (m *Memory) ConsumeReservation(a core.Association, token core.KeyID) ([]cor
 	if !exists {
 		return nil, core.ErrUnavailable
 	}
-	if r.association != a {
+	if r.association != a || r.pool != m.protection.Ref(a) {
 		return nil, core.ErrUnauthorized
 	}
 	now := m.now()
 	for _, id := range r.ids {
 		e := m.keys[id]
 		expire(e, now)
-		if e.meta.MasterState != core.Reserved {
+		if e.meta.Pool != r.pool || e.meta.MasterState != core.Reserved {
 			return nil, core.ErrUnavailable
 		}
 		if m.policy(e, len(r.ids), now) != "" {
@@ -237,5 +245,9 @@ func (m *Memory) Inventory(a core.Association) core.Inventory {
 }
 
 func (m *Memory) policy(e *entry, n int, now time.Time) string {
-	return m.allocation.Check(e.meta.Association, n, allocation.LocalFacts(e.meta.Source, e.meta.CreatedAt, e.meta.ExpiresAt, m.setup), now)
+	if reason := m.protection.Check(e.meta.Association, e.meta.ID, now); reason != "" {
+		return reason
+	}
+	f := allocation.ProviderFacts(allocation.LocalFacts(e.meta.Source, e.meta.CreatedAt, e.meta.ExpiresAt, m.setup), m.protection, e.meta.ID, m.setup)
+	return m.allocation.Check(e.meta.Association, n, f, now)
 }

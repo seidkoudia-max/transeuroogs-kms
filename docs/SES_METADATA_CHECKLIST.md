@@ -60,3 +60,12 @@ SES owns provider claims. TransEuroOGS owns local event history, unknown handlin
 and enforcement. Site operators own national trust/disclosure and incident
 authority. Partner acceptance is joint work. This checklist requests neither
 satellite internals nor a new inter-country KMS control connection.
+
+## Implemented input placeholders
+
+The [remote-QCI runtime](REMOTE_QCI_UPGRADES.md) exposes unresolved inputs as
+`needed_SES_input`, using SES-I01–I10 and SES-M17/M18. Pending contracts block
+allocation. The project's normalized signed-evidence schema and read-only
+reconciliation interface are implemented, with actual SES encoding, authority
+and recovery capability still subject to the interface agreement. SES-M19
+sharing remains unsupported until authenticated application assignment is defined.

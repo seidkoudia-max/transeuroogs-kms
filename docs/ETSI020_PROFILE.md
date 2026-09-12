@@ -13,6 +13,12 @@ The prototype distinguishes standard interworking links (`etsi020`) from
 explicit synthetic intradomain links (`lab-relay`). Both use mutually
 authenticated TLS 1.3; only the former uses ETSI paths.
 
+The opt-in [remote-QCI increment](REMOTE_QCI_UPGRADES.md) adds `qkd-jwe-v1`
+terrestrial transport with a separate consumed 014 link key per JWE envelope,
+at `/qkd/v1/ext_keys`. It also defines mandatory project pool context for
+configured associations and propagates key expiry. These are explicitly project
+extensions, not ETSI-assigned identifiers or new evidence of conformance.
+
 | Operation | Standard endpoint | Implemented behavior |
 | --- | --- | --- |
 | Versions | GET `/kmapi/versions` | `versions: ["v1"]`; no optional synchronous capability advertised |

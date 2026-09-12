@@ -41,6 +41,8 @@ func (p *Persistent) ManagementView(pairs []core.Association) (allocation.View, 
 	out := m.allocation.View(m.setup, pairs, now)
 	for i := range out.Apps {
 		app := &out.Apps[i]
+		app.Pool = m.protection.Ref(app.Association)
+		app.ProtectionGate = m.protection.Gate(app.Association)
 		app.Counts.Capacity = m.capacity
 		for _, k := range m.keys {
 			if k.meta.Association != app.Association {

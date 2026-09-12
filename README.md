@@ -82,8 +82,9 @@ The [Luxembourg two-link lab](deploy/luxembourg/README.md) adds four synthetic
 endpoint KMSs for Windhof–JFK (IDQ) and JFK–Betzdorf (ThinkQuantum QUKY), with
 ETSI 020 interworking inside the trusted JFK site. Its controller-driven tests
 cover both link failures, relay recovery, matching delivery, policy enforcement
-and controller outage. Vendor hardware ingestion and QKD link-key consumption
-remain separate implementation and acceptance work.
+and controller outage. The new protected transport consumes 014 link keys in
+synthetic tests; deploying it in this lab and accepting actual vendor hardware
+remain separate steps. See [remote-QCI protection](docs/REMOTE_QCI_UPGRADES.md).
 
 To leave a local ETSI 014 server running for experiments:
 
@@ -157,3 +158,10 @@ Network mode retains transfer and delivery tombstones in encrypted local state.
 Never load production key material. Lost SAE responses burn delivery rights;
 applications must not automatically retry key retrieval. Peer transfer retries
 are handled separately by the durable outbox.
+
+The [remote-QCI protection increment](docs/REMOTE_QCI_UPGRADES.md) adds OGS pool
+bindings, explicit pending SES inputs, provider evidence, incident actions and
+receipts, QKD-link-protected terrestrial relay, optional HSM wrapping and an
+independent checkpoint witness. Run `make federation-demo` for the synthetic
+three-segment pool/incident test. External interoperability and the documented
+continuous-operation/PQ/HA boundaries remain open.

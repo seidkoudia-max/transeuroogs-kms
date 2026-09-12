@@ -9,10 +9,14 @@ import (
 var _ allocation.Manager = (*Engine)(nil)
 
 func (e *Engine) policy(s *state, r *record, n int, now time.Time) string {
+	if reason := s.Protection.Check(r.Pair, r.ID, now); reason != "" {
+		return reason
+	}
 	f := allocation.LocalFacts(r.Source, r.Created, r.Expires, e.setup)
 	if peer, ok := e.cfg.Peers[r.Sender]; ok {
 		f.Issuer = peer.Identity
 	}
+	f = allocation.ProviderFacts(f, s.Protection, r.ID, e.setup)
 	return s.Allocation.Check(r.Pair, n, f, now)
 }
 func (e *Engine) ApplyCommand(actor string, c allocation.Command) (allocation.Commit, error) {
@@ -52,6 +56,8 @@ func (e *Engine) ManagementView(pairs []core.Association) (allocation.View, erro
 	out := e.s.Allocation.View(e.setup, pairs, now)
 	for i := range out.Apps {
 		app := &out.Apps[i]
+		app.Pool = e.s.Protection.Ref(app.Association)
+		app.ProtectionGate = e.s.Protection.Gate(app.Association)
 		app.Counts.Capacity = e.capacity
 		for _, r := range e.s.Keys {
 			if r.Pair != app.Association {

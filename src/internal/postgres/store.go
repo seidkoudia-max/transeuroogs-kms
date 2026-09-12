@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/durable"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/witness"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/wrapping"
 )
 
@@ -26,33 +27,39 @@ import (
 var schema embed.FS
 
 type Config struct {
-	DSNFile          string `json:"dsn_file"`
-	Namespace        string `json:"namespace"`
-	CheckpointDir    string `json:"checkpoint_dir"`
-	WrappingKeyDir   string `json:"wrapping_key_dir"`
-	AllowLocalSocket bool   `json:"allow_local_socket,omitempty"`
+	Witness          *witness.ClientConfig `json:"witness,omitempty"`
+	HSM              *wrapping.HSMConfig   `json:"hsm,omitempty"`
+	DSNFile          string                `json:"dsn_file"`
+	Namespace        string                `json:"namespace"`
+	CheckpointDir    string                `json:"checkpoint_dir"`
+	WrappingKeyDir   string                `json:"wrapping_key_dir"`
+	AllowLocalSocket bool                  `json:"allow_local_socket,omitempty"`
 }
 
 func (c Config) Validate() error {
-	if c.DSNFile == "" || c.CheckpointDir == "" || c.WrappingKeyDir == "" || len(c.Namespace) < 1 || len(c.Namespace) > 128 || strings.ContainsAny(c.Namespace, "\x00\r\n") {
+	if c.Witness != nil && c.Witness.Validate() != nil {
+		return core.ErrInvalid
+	}
+	if c.HSM != nil && (c.WrappingKeyDir != "" || c.HSM.Validate() != nil) {
+		return core.ErrInvalid
+	}
+	if c.DSNFile == "" || c.CheckpointDir == "" || (c.WrappingKeyDir == "" && c.HSM == nil) || len(c.Namespace) < 1 || len(c.Namespace) > 128 || strings.ContainsAny(c.Namespace, "\x00\r\n") {
 		return core.ErrInvalid
 	}
 	return nil
 }
 
-type checkpoint struct {
-	Namespace  string
-	Generation string
-	Version    int64
-	Digest     string
-}
+type checkpoint = witness.Fence
 type Store struct {
-	mu        sync.Mutex
-	conn      *pgx.Conn
-	anchor    *durable.Journal
-	protector wrapping.Protector
-	c         checkpoint
-	broken    bool
+	authority      witness.Authority
+	closeWitness   func()
+	closeProtector func()
+	mu             sync.Mutex
+	conn           *pgx.Conn
+	anchor         *durable.Journal
+	protector      wrapping.Protector
+	c              checkpoint
+	broken         bool
 }
 
 func connection(c Config) (*pgx.Conn, error) {
@@ -101,13 +108,47 @@ func Migrate(c Config) error {
 }
 
 func Open(c Config, initialize bool) (*Store, []byte, error) {
+	if c.HSM != nil {
+		h, e := wrapping.OpenHSM(*c.HSM)
+		if e != nil {
+			return nil, nil, e
+		}
+		s, raw, e := OpenProtected(c, initialize, h)
+		if e != nil {
+			h.Close()
+			return nil, nil, e
+		}
+		s.closeProtector = h.Close
+		return s, raw, nil
+	}
+
 	return OpenProtected(c, initialize, wrapping.FileRing{Dir: c.WrappingKeyDir})
 }
 func OpenProtected(c Config, initialize bool, protector wrapping.Protector) (s *Store, raw []byte, err error) {
+	var authority witness.Authority
+	var client *witness.Client
+	if c.Witness != nil {
+		client, err = witness.NewClient(*c.Witness)
+		if err != nil {
+			return nil, nil, err
+		}
+		authority = client
+	}
+	s, raw, err = OpenWitnessed(c, initialize, protector, authority)
+	if client != nil {
+		if err != nil {
+			client.Close()
+		} else {
+			s.closeWitness = client.Close
+		}
+	}
+	return s, raw, err
+}
+func OpenWitnessed(c Config, initialize bool, protector wrapping.Protector, authority witness.Authority) (s *Store, raw []byte, err error) {
 	if c.Validate() != nil || protector == nil {
 		return nil, nil, core.ErrInvalid
 	}
-	s = &Store{protector: protector}
+	s = &Store{protector: protector, authority: authority}
 	ok := false
 	owned := s
 	defer func() {
@@ -149,6 +190,7 @@ func OpenProtected(c Config, initialize bool, protector wrapping.Protector) (s *
 		if !initialize || anchor != nil {
 			return nil, nil, durable.ErrState
 		}
+		s.c.Witnessed = authority != nil
 		s.c.Generation = string(core.NewID())
 		s.c.Version = 0
 		// Provisioning commits an empty snapshot and checkpoint. After a crash,
@@ -170,6 +212,15 @@ func OpenProtected(c Config, initialize bool, protector wrapping.Protector) (s *
 	var a checkpoint
 	if json.Unmarshal(anchor, &a) != nil || a.Namespace != s.c.Namespace || a.Generation != s.c.Generation || a.Version != s.c.Version || a.Digest != digest(blob) {
 		return nil, nil, durable.ErrState
+	}
+	if a.Witnessed != (authority != nil) {
+		return nil, nil, durable.ErrState
+	}
+	if authority != nil {
+		observed, e := authority.Current(c.Namespace)
+		if e != nil || observed != a {
+			return nil, nil, durable.ErrState
+		}
 	}
 	s.c = a
 	raw, e = protector.Open(blob, s.aad(meta))
@@ -229,6 +280,10 @@ func (s *Store) saveLocked(raw []byte, initial bool) error {
 	if err != nil {
 		return err
 	}
+	previousFence := s.c
+	if initial {
+		previousFence = checkpoint{}
+	}
 	previous := s.c.Version
 	if !initial {
 		s.c.Version++
@@ -239,6 +294,12 @@ func (s *Store) saveLocked(raw []byte, initial bool) error {
 		return durable.ErrState
 	}
 	s.c.Digest = digest(blob)
+	if s.authority != nil {
+		if e := s.authority.Advance(previousFence, s.c); e != nil {
+			s.broken = true
+			return durable.ErrState
+		}
+	}
 	anchor, _ := json.Marshal(s.c)
 	// Write-ahead checkpoint: even an uncertain COMMIT cannot permit an old
 	// database backup to revive consumed keys. A mismatch fails startup closed.
@@ -313,6 +374,14 @@ func (s *Store) Close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.broken = true
+	if s.closeWitness != nil {
+		s.closeWitness()
+		s.closeWitness = nil
+	}
+	if s.closeProtector != nil {
+		s.closeProtector()
+		s.closeProtector = nil
+	}
 	if s.conn != nil {
 		s.conn.Close(context.Background())
 		s.conn = nil

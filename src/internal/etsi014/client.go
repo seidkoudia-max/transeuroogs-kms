@@ -17,7 +17,8 @@ import (
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/upstream"
 )
 
-// Client implements only the explicitly configured synthetic 014 profile.
+// Client implements the explicitly configured bounded 014 profile. A real final-
+// key service additionally requires a reviewed pool contract and evidence adapter.
 // Consuming requests are never automatically retried, including after redirects.
 type Client struct {
 	cfg  upstream.Config

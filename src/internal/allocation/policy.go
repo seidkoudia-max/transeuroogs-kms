@@ -376,6 +376,8 @@ type Counts struct {
 	UpstreamAvailable *int           `json:"upstream_available"`
 }
 type AppView struct {
+	Pool           core.PoolRef `json:"pool,omitzero"`
+	ProtectionGate string       `json:"protection_gate,omitempty"`
 	Binding
 	Counts Counts   `json:"counts"`
 	Routes []string `json:"routes"`

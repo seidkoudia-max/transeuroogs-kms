@@ -10,6 +10,7 @@ import (
 
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/allocation"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/federation"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/metadata"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/peering"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/postgres"
@@ -18,6 +19,7 @@ import (
 )
 
 type Config struct {
+	Federation   *federation.Config `json:"federation,omitempty"`
 	KMEID        string             `json:"kme_id"`
 	Capacity     int                `json:"capacity"`
 	Identities   map[string]string  `json:"identities"`
@@ -57,6 +59,50 @@ func Load(path string) (Config, error) {
 }
 
 func (c Config) Validate() error {
+	if c.Federation != nil {
+		f := c.Federation
+		if f.Validate(c.Associations) != nil || (c.Operational == nil && c.Eagle == nil && c.InterKMS == nil && c.Metadata == nil && f.StateDir == "") {
+			return errors.New("invalid durable federation configuration")
+		}
+		for actor := range f.Principals {
+			if _, ok := c.Identities[actor]; ok {
+				return errors.New("protection operator must be separate from applications")
+			}
+			if c.SDN != nil {
+				if _, ok := c.SDN.Principals[actor]; ok {
+					return errors.New("protection operator must be separate from controllers")
+				}
+			}
+			if c.Eagle != nil && (actor == c.Eagle.ServerIdentity || actor == c.Eagle.GatewayIdentity) {
+				return errors.New("protection operator must be separate from provider")
+			}
+			if c.InterKMS != nil {
+				for _, peer := range c.InterKMS.Peers {
+					if actor == peer.Identity {
+						return errors.New("protection operator must be separate from peer KMS")
+					}
+				}
+			}
+		}
+		if c.Eagle != nil {
+			if len(f.Pools) != 1 {
+				return errors.New("segmented intake requires one pool per upstream endpoint process")
+			}
+			p := f.Pools[0]
+			u := c.Eagle
+			if p.Provider != u.ServerIdentity || p.Gateways != (core.Association{Master: u.GatewayMaster, Slave: u.GatewaySlave}) {
+				return errors.New("pool provider binding conflicts with upstream configuration")
+			}
+			if u.Profile == upstream.FinalProfile {
+				if p.Contract.Mode != "ses-reviewed" || p.Contract.APIProfile != upstream.FinalProfile || p.Contract.Agreement != u.Agreement || p.Contract.PoolSelection != "gateway-pair" || p.Contract.FinalRelease != "paired-final-keys-only" || p.Contract.Evidence != federation.EvidenceProfile || !p.RequireEvidence || len(f.Trust) == 0 || p.Contract.MaxKeyAgeSeconds == nil || u.LifetimeSeconds > *p.Contract.MaxKeyAgeSeconds {
+					return errors.New("reviewed final-key adapter requires matching SES agreement, trusted evidence and bounded lifetime")
+				}
+			} else if p.Contract.Mode == "ses-reviewed" {
+				return errors.New("synthetic adapter cannot activate an SES-reviewed pool")
+			}
+		}
+	}
+
 	if c.SDN != nil {
 		if c.Metadata == nil || c.SDN.Validate(c.Associations) != nil {
 			return errors.New("SDN requires durable metadata and valid management configuration")
@@ -123,6 +169,9 @@ func (c Config) Validate() error {
 		seen[a] = true
 	}
 	if c.InterKMS != nil {
+		if c.Operational != nil && c.InterKMS.QKDStateDir != "" && len(c.Operational.UpstreamCRLFiles) == 0 {
+			return errors.New("protected QKD link providers require operational CRLs")
+		}
 		if c.Eagle != nil || len(c.LocalSAEs) != 0 {
 			return errors.New("conflicting repository or local identity configuration")
 		}
@@ -157,6 +206,12 @@ func (c Config) Validate() error {
 		}
 	}
 	if c.Eagle != nil {
+		if c.Eagle.Profile == upstream.LinkProfile {
+			return errors.New("link-key profile is reserved for protected terrestrial relay peers")
+		}
+		if c.Eagle.Profile == upstream.FinalProfile && c.Federation == nil {
+			return errors.New("final-key adapter requires explicit pool and provider contract")
+		}
 		if c.Eagle.Validate() != nil || len(c.Associations) != 1 || len(c.LocalSAEs) != 1 {
 			return errors.New("invalid segmented service profile")
 		}
