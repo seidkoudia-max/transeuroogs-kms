@@ -29,6 +29,7 @@ make check
 make demo
 make relay-demo
 make segmented-demo
+make metadata-demo
 ```
 
 `make demo` generates a temporary development PKI under `.local/pki/`, starts a
@@ -59,6 +60,13 @@ The operational profile supports separate metadata/material access, external
 wrapping-key rotation, CRLs, audit records and rate limits. Site PKI issuance,
 HSM/HA deployment validation and integration with a chosen business application
 remain explicit operational inputs.
+
+`make metadata-demo` adds signed lifecycle history to the two-site segmented
+exercise, exports evidence under separate investigator identities, and verifies
+an offline incident trace against both national histories. It checks restricted
+application summaries, restart recovery and rejection of tampered evidence.
+The same runtime supports local persistence and terrestrial relay. See the
+[metadata runtime](docs/METADATA_RUNTIME.md) for configuration, API and CLI usage.
 
 To leave a local ETSI 014 server running for experiments:
 
@@ -95,6 +103,8 @@ The KMS is not published on a host port. `down -v` removes that lab volume.
 - `src/internal/core/`: domain types and repository contract.
 - `src/internal/storage/`: atomic memory and persistent repository implementations.
 - `src/internal/postgres/`: transactional snapshots, metadata isolation, audit and rollback checkpoints.
+- `src/internal/metadata/`: signed local observations, bounded evidence verification and incident tracing.
+- `src/internal/metapi/`: mTLS metadata summaries and investigator API.
 - `src/internal/wrapping/`: external file-ring encryption and protector interface.
 - `src/application/`: authenticated notification and standard TLS PSK reference SAE.
 - `src/internal/etsi014/`: application HTTP adapter and wire models.
@@ -106,7 +116,7 @@ The KMS is not published on a host port. `down -v` removes that lab volume.
 - `src/internal/eaglelab/`: delayed paired-service outcome model.
 - `src/internal/peering/`: configured peer identities, transport modes and routes.
 - `src/internal/security/`: verified certificate identity and TLS configuration.
-- `src/cmd/`: KMS binary and test-PKI generator.
+- `src/cmd/`: KMS, metadata evidence utility, enrollment and test-PKI tools.
 - `emulator/`: synthetic-source and SAE laboratory documentation/harness.
 - `tests/`: integration tests and requirement traceability.
 - `api/etsi014/openapi.json`: application laboratory contract.
@@ -116,6 +126,13 @@ The KMS is not published on a host port. `down -v` removes that lab volume.
 
 Read [ARCHITECTURE](docs/ARCHITECTURE.md), [REQUIREMENTS](docs/REQUIREMENTS.md),
 and [DEVELOPMENT_PLAN](docs/DEVELOPMENT_PLAN.md) before extending the service.
+
+The metadata increment implements signed local history and read-only incident
+tracing. [METADATA_PROFILE](docs/METADATA_PROFILE.md) distinguishes this executable
+subset from pending allocation policies, provider evidence and SDN integration.
+The [SES interface checklist](docs/SES_METADATA_CHECKLIST.md) remains unanswered;
+the [incident tracing specification](docs/INCIDENT_TRACING.md) preserves the three
+trust segments and treats provider history and application receipt as unknown.
 
 The original local 014 fixture uses memory and loses its state on restart.
 Network mode retains transfer and delivery tombstones in encrypted local state.

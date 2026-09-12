@@ -14,7 +14,7 @@ M0–M7 are engineering stages, not project calendar months or WP4 milestone IDs
 | M5a | Upstream EAGLE-1 014 client, durable paired ingestion and two-site service emulator with delayed offline relay | Implemented segmented synthetic profile; partner validation pending |
 | M5b | SES deployment profile and external interoperability validation | Needs profile and partner test access; gateway authorisation is confirmed |
 | M6 | LU/GR demonstration, then DE and IE deployments of the same KMS/adapter | Planned |
-| M7 | Metadata-only management and required SDN-facing abstraction; controller integration | Planned; external controller is optional for static lab operation |
+| M7 | Metadata foundation, evidence/policy and incident tracing, then metadata-only SDN-facing management | M7a and read-only evidence/incident runtime implemented; source/freshness/entitlement policy and M7c pending; see [METADATA_RUNTIME](METADATA_RUNTIME.md) |
 
 M2 acceptance: `make check` and `make demo`; the demo must verify 1,000 matching
 keys, unique IDs, pool depletion, mTLS and rejection of a repeat slave delivery.
@@ -71,3 +71,25 @@ Acceptance adds `make app-test` and `make operational-demo` to the existing chec
 The latter creates a real isolated PostgreSQL cluster and runs two national KMS
 processes, a synthetic provider and independent application processes. This
 software increment does not complete real deployment milestone M6 or certify M5b.
+
+## Metadata increments before deployment
+
+[METADATA_PROFILE](METADATA_PROFILE.md) defines M7a (semantic model and history),
+M7b (evidence exchange, initial policies and incident tracing) and M7c (management
+integration). It maps required failure, race and authorisation checks to META
+requirement IDs. [SES_METADATA_CHECKLIST](SES_METADATA_CHECKLIST.md) records the
+provider questions, and [INCIDENT_TRACING](INCIDENT_TRACING.md) specifies exposure
+intervals, partial coverage and separately authorised remediation.
+
+The metadata runtime now atomically persists signed lifecycle observations in
+local, segmented and relay repositories, exposes restricted mTLS summaries and
+investigator history/query endpoints, and verifies offline signed evidence from
+multiple nodes. `make metadata-demo` exercises two sites, restarts, authenticated
+disclosure, evidence tampering and incident-to-delivery tracing. Relay tests cover
+distinct-path isolation; real PostgreSQL tests cover history recovery and public
+metadata separation. See [METADATA_RUNTIME](METADATA_RUNTIME.md) for limits.
+
+M7 remains partial: allocation policies, provider attestation ingestion, signing
+rotation/archive, application usage receipts, incident holds/remediation and SDN
+integration require further increments. No SES agreement, production acceptance
+or paper-level interoperability is established by these synthetic tests.

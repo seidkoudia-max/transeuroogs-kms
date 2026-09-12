@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/metadata"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/peering"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/postgres"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/security"
@@ -25,6 +26,7 @@ type Config struct {
 	TargetKMEs   map[string]string  `json:"target_kmes,omitempty"`
 	Eagle        *upstream.Config   `json:"eagle,omitempty"`
 	Operational  *Operational       `json:"operational,omitempty"`
+	Metadata     *metadata.Config   `json:"metadata,omitempty"`
 }
 
 type Operational struct {
@@ -53,6 +55,21 @@ func Load(path string) (Config, error) {
 }
 
 func (c Config) Validate() error {
+	if c.Metadata != nil {
+		if c.Metadata.Validate() != nil || (c.Operational == nil && c.Eagle == nil && c.InterKMS == nil && c.Metadata.StateDir == "") {
+			return errors.New("invalid metadata configuration")
+		}
+		for identity, pairs := range c.Metadata.Readers {
+			if _, exists := c.Identities[identity]; exists {
+				return errors.New("metadata reader must have a separate identity")
+			}
+			for _, a := range pairs {
+				if !slices.Contains(c.Associations, a) {
+					return errors.New("metadata reader has unknown association")
+				}
+			}
+		}
+	}
 	if c.Operational != nil {
 		o := c.Operational
 		if o.Database.Validate() != nil || !o.Limits.Valid() || len(o.CRLFiles) == 0 || (c.Eagle != nil && len(o.UpstreamCRLFiles) == 0) {

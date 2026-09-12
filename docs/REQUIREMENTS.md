@@ -51,6 +51,12 @@ They do not establish actual SES interoperability. See
 | EAGLE-007 | Restrict each profile to one local/upstream pair and preserve per-association master/slave roles | Configuration, repository role and local identity tests |
 | MGMT-001 | Provide an SDN-facing metadata abstraction independent of key-plane operation; expose no key material | Planned; management interface not implemented |
 
+Metadata requirements META-001–META-012 and their current acceptance coverage are
+defined in [METADATA_PROFILE](METADATA_PROFILE.md). The signed local-history and
+read-only incident subset is implemented; policy-based allocation, incident holds,
+provider attestations and controller orchestration remain pending. See the
+[runtime contract](METADATA_RUNTIME.md) and [verification map](../tests/README.md).
+
 Application notification of the selected KID is supplied by the harness. The
 reference application now supplies notification, peer authentication and TLS
 key confirmation in the operational increment; segmented KMS authentication does not implement

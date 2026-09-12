@@ -28,6 +28,8 @@ jobs:
         run: make relay-demo
       - name: Verify three-segment ingestion, independent CAs, KID preservation and restart
         run: make segmented-demo
+      - name: Verify durable metadata, restricted views and signed two-site incident tracing
+        run: make metadata-demo
   compose:
     runs-on: ubuntu-latest
     timeout-minutes: 15

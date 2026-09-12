@@ -2,7 +2,10 @@ module github.com/seidkoudia-max/transeuroogs-kms
 
 go 1.27.0
 
-require github.com/jackc/pgx/v5 v5.8.0
+require (
+	github.com/go-jose/go-jose/v4 v4.1.4
+	github.com/jackc/pgx/v5 v5.8.0
+)
 
 require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect

@@ -180,6 +180,15 @@ func (r *response) Write(b []byte) (int, error) {
 }
 func operation(r *http.Request) string {
 	// Never audit a caller-provided path/query, which may contain key material.
+	if strings.HasPrefix(r.URL.Path, "/metadata/v1/keys/") {
+		return "metadata_key"
+	}
+	if r.URL.Path == "/metadata/v1/events" {
+		return "metadata_events"
+	}
+	if r.URL.Path == "/metadata/v1/trace" {
+		return "metadata_trace"
+	}
 	for _, op := range []string{"status", "enc_keys", "dec_keys", "versions", "ext_keys", "ack", "void"} {
 		if strings.HasSuffix(r.URL.Path, "/"+op) {
 			return op

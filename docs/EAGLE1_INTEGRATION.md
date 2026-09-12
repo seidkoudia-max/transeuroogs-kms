@@ -143,6 +143,14 @@ readiness/retention/error semantics, monitoring/control ICD and test access.
 These remain integration inputs; gateway authorisation is already settled.
 Real-service enablement requires a reviewed deployment profile and partner tests.
 
+The metadata increment adds a focused [SES question checklist](SES_METADATA_CHECKLIST.md)
+for identity scope, generation/relay timing, evidence, incident references and
+disclosure. Missing provider information remains explicitly unknown; it must not
+be inferred from local ingestion timestamps or the receiver's certification.
+Signed local observations and offline incident tracing are now implemented in
+[METADATA_RUNTIME](METADATA_RUNTIME.md). This adds no central-segment behaviour
+or provider assertions; authentic SES evidence still requires an interface agreement.
+
 ## Verification and remaining milestones
 
 Run `make check`, `make demo`, `make relay-demo`, and `make segmented-demo`.

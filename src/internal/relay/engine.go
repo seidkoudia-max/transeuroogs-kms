@@ -20,6 +20,7 @@ type record struct {
 	ID           core.KeyID
 	Pair         core.Association
 	Role         string
+	Source       string
 	Material     []byte
 	Digest       string
 	KeyExtension etsi020.Extension
@@ -91,7 +92,7 @@ func OpenStore(cfg peering.Config, associations []core.Association, capacity int
 			store.Close()
 		}
 	}()
-	if cfg.Validate() != nil || capacity < 1 || capacity > 100000 || tr == nil || store == nil {
+	if cfg.Validate() != nil || capacity < 1 || capacity > 100000 || tr == nil || store == nil || !durable.PlainSnapshot(raw) {
 		return nil, core.ErrInvalid
 	}
 	// Own configuration and extension buffers; callers cannot change active policy.
@@ -238,7 +239,7 @@ func (e *Engine) StoreKey(k core.Key) error {
 		if len(candidates) == 0 {
 			return core.ErrUnavailable
 		}
-		r := &record{ID: k.ID, Pair: k.Association, Role: "source", Material: slices.Clone(k.Material), Created: k.CreatedAt, Expires: k.ExpiresAt, Candidates: candidates}
+		r := &record{ID: k.ID, Pair: k.Association, Role: "source", Source: k.Source, Material: slices.Clone(k.Material), Created: k.CreatedAt, Expires: k.ExpiresAt, Candidates: candidates}
 		r.Digest = digest(etsi020.Key{ID: k.ID, Value: base64.StdEncoding.EncodeToString(k.Material)}, k.Association, nil)
 		s.Keys[k.ID] = r
 		s.Order = append(s.Order, k.ID)

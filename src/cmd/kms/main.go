@@ -16,14 +16,18 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"syscall"
 	"time"
 
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/config"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/durable"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/etsi014"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/etsi020"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/ingest"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/metadata"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/metapi"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/peering"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/postgres"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/relay"
@@ -63,6 +67,8 @@ func run() error {
 	}
 	var repo core.Repository = memory
 	var pg *postgres.Store
+	var managed durable.Store
+	var history *metadata.Store
 	var recovered []byte
 	if *migrate {
 		if c.Operational == nil {
@@ -79,25 +85,60 @@ func run() error {
 			return err
 		}
 		defer pg.Close()
+		managed = pg
 		defer clear(recovered)
 		if *count > 0 && recovered != nil {
 			return fmt.Errorf("synthetic provisioning requires a fresh operational namespace")
 		}
-		if c.Eagle == nil && c.InterKMS == nil {
-			binding, _ := json.Marshal(struct {
-				KME        string
-				Pairs      []core.Association
-				Identities map[string]string
-				Local      []string
-			}{c.KMEID, c.Associations, c.Identities, c.LocalSAEs})
-			hash := sha256.Sum256(binding)
-			persistent, e := storage.OpenPersistent(c.Capacity, hex.EncodeToString(hash[:]), pg, recovered)
-			if e != nil {
-				return e
-			}
-			defer persistent.Close()
-			repo = persistent
+	}
+	if c.Metadata != nil {
+		project := metadata.Projector(storage.ProjectMetadata)
+		dir, context := c.Metadata.StateDir, "transeuroogs-local-metadata-v1"
+		if c.Eagle != nil {
+			project = ingest.ProjectMetadata(*c.Eagle, c.Associations[0])
+			dir = c.Eagle.StateDir
+			context = "transeuroogs-segmented-ingestion-v1"
 		}
+		if c.InterKMS != nil {
+			project = relay.ProjectMetadata(*c.InterKMS)
+			dir = c.InterKMS.StateDir
+			context = "transeuroogs-relay-state-v1"
+		}
+		if managed == nil {
+			managed, recovered, err = durable.Open(dir, context)
+			if err != nil {
+				return err
+			}
+			defer managed.Close()
+		}
+		if *count > 0 && recovered != nil {
+			return fmt.Errorf("synthetic provisioning requires fresh metadata state")
+		}
+		signing, e := metadata.LoadSigning(c.Metadata.SigningKeyFile, c.Metadata.CredentialID)
+		if e != nil {
+			return e
+		}
+		history, recovered, err = metadata.Open(*c.Metadata, signing, managed, recovered, project, nil)
+		if err != nil {
+			return err
+		}
+		managed = history
+		defer history.Close()
+	}
+	if managed != nil && c.Eagle == nil && c.InterKMS == nil {
+		binding, _ := json.Marshal(struct {
+			KME        string
+			Pairs      []core.Association
+			Identities map[string]string
+			Local      []string
+		}{c.KMEID, c.Associations, c.Identities, c.LocalSAEs})
+		hash := sha256.Sum256(binding)
+		persistent, e := storage.OpenPersistent(c.Capacity, hex.EncodeToString(hash[:]), managed, recovered)
+		if e != nil {
+			return e
+		}
+		defer persistent.Close()
+		repo = persistent
 	}
 	var engine *relay.Engine
 	var ingestion *ingest.Repository
@@ -127,8 +168,8 @@ func run() error {
 			return e
 		}
 		defer client.Close()
-		if pg != nil {
-			ingestion, e = ingest.OpenStore(*u, c.Associations[0], c.Capacity, client, pg, recovered)
+		if managed != nil {
+			ingestion, e = ingest.OpenStore(*u, c.Associations[0], c.Capacity, client, managed, recovered)
 		} else {
 			ingestion, e = ingest.Open(*u, c.Associations[0], c.Capacity, client)
 		}
@@ -164,8 +205,8 @@ func run() error {
 			return e
 		}
 		defer client.Close()
-		if pg != nil {
-			engine, e = relay.OpenStore(*c.InterKMS, c.Associations, c.Capacity, client, pg, recovered)
+		if managed != nil {
+			engine, e = relay.OpenStore(*c.InterKMS, c.Associations, c.Capacity, client, managed, recovered)
 		} else {
 			engine, e = relay.Open(*c.InterKMS, c.Associations, c.Capacity, client)
 		}
@@ -199,10 +240,31 @@ func run() error {
 		mux.Handle("/lab/", etsi020.Handler(engine, *c.InterKMS, peering.LabRelay))
 		handler = mux
 	}
+	if history != nil {
+		apps := map[string]string{}
+		locals := c.LocalSAEs
+		if c.InterKMS != nil {
+			locals = c.InterKMS.LocalSAEs
+		}
+		for uri, sae := range c.Identities {
+			if (c.InterKMS == nil && len(locals) == 0) || slices.Contains(locals, sae) {
+				apps[uri] = sae
+			}
+		}
+		mux := http.NewServeMux()
+		mux.Handle("/", handler)
+		mux.Handle("/metadata/", metapi.New(history, apps, c.Associations, c.Metadata.Readers))
+		handler = mux
+	}
 	if c.Operational != nil {
 		ids := []string{}
 		for id := range c.Identities {
 			ids = append(ids, id)
+		}
+		if c.Metadata != nil {
+			for id := range c.Metadata.Readers {
+				ids = append(ids, id)
+			}
 		}
 		if c.InterKMS != nil {
 			for _, peer := range c.InterKMS.Peers {

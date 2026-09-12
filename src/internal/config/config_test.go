@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/metadata"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/peering"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/upstream"
 	"os"
@@ -65,6 +66,36 @@ func TestSegmentedProfileRoleAndIdentityValidation(t *testing.T) {
 			tc.change(&c)
 			if (c.Validate() == nil) != tc.valid {
 				t.Fatal("unexpected profile validation outcome")
+			}
+		})
+	}
+}
+
+func TestMetadataRequiresDurabilityAndSeparateScopedInvestigators(t *testing.T) {
+	pair := core.Association{Master: "A", Slave: "B"}
+	base := Config{KMEID: "LU", Capacity: 10, Identities: map[string]string{"urn:app:a": "A", "urn:app:b": "B"}, Associations: []core.Association{pair},
+		Metadata: &metadata.Config{Domain: "lab", Issuer: "urn:node:lu", Namespace: "lab-pair", CredentialID: "v1", SigningKeyFile: "outside-git.pem", StateDir: "private-state", MaxEvents: 100, Readers: map[string][]core.Association{"urn:investigator:lab": {pair}}}}
+	for _, tc := range []struct {
+		name   string
+		valid  bool
+		change func(*Config)
+	}{
+		{"valid", true, func(*Config) {}},
+		{"missing durable state", false, func(c *Config) { c.Metadata.StateDir = "" }},
+		{"application as investigator", false, func(c *Config) { c.Metadata.Readers["urn:app:a"] = []core.Association{pair} }},
+		{"unknown pair", false, func(c *Config) {
+			c.Metadata.Readers["urn:investigator:lab"] = []core.Association{{Master: "A", Slave: "C"}}
+		}},
+		{"invalid event bound", false, func(c *Config) { c.Metadata.MaxEvents = 0 }},
+		{"unknown clock", true, func(c *Config) { c.Metadata.ClockUncertaintyMS = nil }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			b, _ := json.Marshal(base)
+			var c Config
+			_ = json.Unmarshal(b, &c)
+			tc.change(&c)
+			if (c.Validate() == nil) != tc.valid {
+				t.Fatal("incorrect metadata configuration acceptance")
 			}
 		})
 	}
