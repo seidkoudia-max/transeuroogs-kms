@@ -6,9 +6,59 @@ import (
 	"encoding/pem"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestLuxembourgEndpointAndClientIdentities(t *testing.T) {
+	now := time.Now()
+	p, err := GenerateLuxembourg(now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roots := x509.NewCertPool()
+	if !roots.AppendCertsFromPEM(p.CA) || len(p.Certificates) != 8 {
+		t.Fatal("incomplete Luxembourg test profile")
+	}
+	for name, certificate := range p.Certificates {
+		block, _ := pem.Decode(certificate.CertPEM)
+		leaf, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		client := strings.Contains(name, "sae")
+		role := "kme"
+		if client {
+			role = "sae"
+		}
+		if len(leaf.URIs) != 1 || leaf.URIs[0].String() != "urn:transeuroogs:"+role+":"+name {
+			t.Fatal("wrong endpoint identity")
+		}
+		options := x509.VerifyOptions{Roots: roots, CurrentTime: now, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}}
+		if _, err := leaf.Verify(options); err != nil {
+			t.Fatal(err)
+		}
+		options.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+		if client {
+			if _, err := leaf.Verify(options); err == nil {
+				t.Fatal("application/controller credential allowed as server")
+			}
+			continue
+		}
+		options.DNSName = name + ".transeuroogs-lux.svc.cluster.local"
+		if _, err := leaf.Verify(options); err != nil {
+			t.Fatal(err)
+		}
+		options.DNSName = "other.transeuroogs-lux.svc.cluster.local"
+		if _, err := leaf.Verify(options); err == nil {
+			t.Fatal("certificate accepted for a different endpoint")
+		}
+		if leaf.NotAfter.Sub(now) > 24*time.Hour {
+			t.Fatal("test certificate lifetime too long")
+		}
+	}
+}
 
 func TestIssuedCertificatesCarryIssuerKeyIdentifier(t *testing.T) {
 	now := time.Now()

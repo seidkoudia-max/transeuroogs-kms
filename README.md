@@ -78,6 +78,13 @@ isolated local Ubuntu/MicroK8s VM. Physical service provisioning and 021/023 dra
 integration remain pending. See [SDN allocation](docs/SDN_ALLOCATION.md) and the
 [TeraFlow lab bundle](deploy/teraflow/README.md).
 
+The [Luxembourg two-link lab](deploy/luxembourg/README.md) adds four synthetic
+endpoint KMSs for Windhof–JFK (IDQ) and JFK–Betzdorf (ThinkQuantum QUKY), with
+ETSI 020 interworking inside the trusted JFK site. Its controller-driven tests
+cover both link failures, relay recovery, matching delivery, policy enforcement
+and controller outage. Vendor hardware ingestion and QKD link-key consumption
+remain separate implementation and acceptance work.
+
 To leave a local ETSI 014 server running for experiments:
 
 ```sh

@@ -98,6 +98,14 @@ The real TeraFlow v7 controller allocation lab is now deployed in a dedicated
 Ubuntu/MicroK8s VM on the development Mac, using Rosetta for upstream amd64
 containers. See the [lab acceptance record](../deploy/teraflow/ACCEPTANCE.md).
 
+The [Luxembourg two-link lab](../deploy/luxembourg/README.md) extends this with
+four synthetic endpoint processes across two logical link domains, interworking
+at the shared JFK trusted site. It exercises relay recovery under geographic-link
+outages and local allocation through the deployed controller. M6 is still planned:
+no IDQ/QUKY equipment is connected, upstream 014 ingestion and inter-KMS mode
+cannot yet be combined, and QKD link-key consumption/protected relay require an
+agreed integration increment. These tests do not establish physical interoperability.
+
 M7 remains partial: provider attestation ingestion, signing rotation/archive,
 application usage receipts, incident holds/remediation, bandwidth/priority
 scheduling, controller service provisioning and agreed 021/023 draft integration

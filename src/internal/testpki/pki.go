@@ -39,6 +39,16 @@ func serial() *big.Int {
 func Generate(now time.Time) (PKI, error) { return GenerateRevoked(now, nil) }
 
 func GenerateRevoked(now time.Time, revokedNames []string) (PKI, error) {
+	return generate(now, revokedNames, []string{"kms", "sae-lu", "sae-gr", "unknown-sae", "controller-sae", "lu", "eagle-lu", "relay-a", "relay-b", "eagle-gr", "gr"}, "")
+}
+
+// GenerateLuxembourg creates identities for the synthetic two-link laboratory.
+// These names identify simulated endpoints, not vendor or site credentials.
+func GenerateLuxembourg(now time.Time) (PKI, error) {
+	return generate(now, nil, []string{"windhof", "jfk-idq", "jfk-tq", "betzdorf", "sae-windhof", "sae-betzdorf", "controller-sae", "unknown-sae"}, "transeuroogs-lux")
+}
+
+func generate(now time.Time, revokedNames, names []string, namespace string) (PKI, error) {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return PKI{}, err
@@ -57,7 +67,7 @@ func GenerateRevoked(now time.Time, revokedNames []string) (PKI, error) {
 	}
 	out := PKI{CA: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), Certificates: map[string]Certificate{}}
 	var revoked []x509.RevocationListEntry
-	for _, name := range []string{"kms", "sae-lu", "sae-gr", "unknown-sae", "controller-sae", "lu", "eagle-lu", "relay-a", "relay-b", "eagle-gr", "gr"} {
+	for _, name := range names {
 		lp, lk, err := ed25519.GenerateKey(rand.Reader)
 		if err != nil {
 			return PKI{}, err
@@ -75,6 +85,9 @@ func GenerateRevoked(now time.Time, revokedNames []string) (PKI, error) {
 			uri, _ = url.Parse("urn:transeuroogs:kme:" + name)
 			leaf.URIs = []*url.URL{uri}
 			leaf.DNSNames = []string{"localhost", name}
+			if namespace != "" {
+				leaf.DNSNames = append(leaf.DNSNames, name+"."+namespace+".svc.cluster.local")
+			}
 			leaf.IPAddresses = []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}
 			leaf.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
 		}
