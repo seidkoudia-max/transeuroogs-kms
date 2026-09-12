@@ -1,0 +1,11 @@
+[Unit]
+Description=Local-only TransEuroOGS TeraFlow WebUI forwarding
+After=snap.microk8s.daemon-kubelite.service
+
+[Service]
+ExecStart=/snap/bin/microk8s kubectl -n tfs port-forward --address=127.0.0.1 service/webuiservice 8080:8004
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -73,7 +73,8 @@ The same runtime supports local persistence and terrestrial relay. See the
 mTLS. It verifies metadata-based allocation, controller identity isolation,
 durable policy reconciliation and restart/replay behavior. The KMS also exposes
 a bounded ETSI 015 V2.1.1 agent profile; captured data is validated against the
-published YANG model in CI. Full TeraFlow cluster deployment and 021/023 draft
+published YANG model in CI. A real TeraFlow v7 allocation lab now runs in an
+isolated local Ubuntu/MicroK8s VM. Physical service provisioning and 021/023 draft
 integration remain pending. See [SDN allocation](docs/SDN_ALLOCATION.md) and the
 [TeraFlow lab bundle](deploy/teraflow/README.md).
 

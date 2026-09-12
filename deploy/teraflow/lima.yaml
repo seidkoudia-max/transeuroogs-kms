@@ -1,0 +1,32 @@
+# Isolated Apple Silicon lab. Controller containers use linux/amd64 via Rosetta.
+# Ubuntu image and digest come from Lima 2.2.0's Ubuntu 24.04 template.
+minimumLimaVersion: 2.2.0
+vmType: vz
+arch: aarch64
+images:
+  - location: https://cloud-images.ubuntu.com/releases/noble/release-20260705/ubuntu-24.04-server-cloudimg-arm64.img
+    arch: aarch64
+    digest: sha256:7df0201546f75b8bcc1044594c806c35749421ad3c9bc1be2a3ab806cfae39cc
+cpus: 6
+memory: 10GiB
+# Sparse capacity, not preallocated host space. Check host free space before builds.
+disk: 60GiB
+mounts: []
+containerd:
+  system: false
+  user: false
+vmOpts:
+  vz:
+    rosetta:
+      enabled: true
+      binfmt: true
+# Only the lab UI is forwarded automatically. No home directory is shared.
+portForwards:
+  - guestPort: 8080
+    hostPort: 8080
+    hostIP: 127.0.0.1
+  - guestIP: 0.0.0.0
+    guestIPMustBeZero: false
+    guestPortRange: [1, 65535]
+    proto: any
+    ignore: true
