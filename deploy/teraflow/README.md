@@ -1,93 +1,216 @@
-# TeraFlow v7 laboratory bundle
+# TeraFlow v7 local laboratory
 
-The local KMS and driver-contract lab runs now with `make sdn-demo`. The full
-controller cluster remains pending. On 2026-09-12 the development Mac has arm64,
-24 GB RAM and 12 CPUs. Colima 0.10.3, Docker CLI 29.8.0, Kubernetes CLI 1.37.0 and
-Helm 4.3.0 were installed; no VM, Docker daemon or Kubernetes cluster was started.
-Available storage fell below 7 GiB during work. The upstream guide's example VM
-uses 4 CPUs, 8 GB RAM and a 60 GB disk. Provide a larger local/external volume
-before downloading controller images or allocating the VM. No user data was
-removed to make space.
+A real TeraFlow controller is deployed locally on the Apple Silicon development
+Mac, using an isolated Ubuntu VM and MicroK8s. The controller manages the
+synthetic LU KMS through the opt-in TransEuroOGS driver. The WebUI is available at
+[http://127.0.0.1:8080/](http://127.0.0.1:8080/); choose
+**Context(admin):Topology(admin)**, then **Device** to see `LU-KMS`.
+The HTTP NBI remains inside the cluster.
 
-To keep a synthetic managed KMS running after the acceptance test:
+This is a bounded allocation lab. It does not provision physical QKD links or
+establish ETSI 015/021/023 conformance. See [SDN allocation](../../docs/SDN_ALLOCATION.md)
+and [the acceptance record](ACCEPTANCE.md) for the tested boundary.
 
-```sh
-make build pki
-go run ./src/cmd/kms-metadata keygen --private .local/sdn-sign.key.pem --public .local/sdn-sign.pub.pem
-.local/bin/kms --config deploy/config/sdn-local.json --synthetic-keys 32
-```
+## Start, inspect and stop the existing lab
 
-Generate the signing credential only once; the tool refuses to overwrite it.
-Restart with `--synthetic-keys 0` to recover the existing state. The example has
-fixed synthetic node/application UUIDs and a dedicated `controller-sae` test
-identity. It is for this isolated lab, not a site certificate/deployment profile.
-
-Use the [official deployment guide](https://tfs.etsi.org/documentation/latest/deployment_guide/)
-for Ubuntu 22.04/24.04 and MicroK8s. Start with a dedicated test VM/cluster and
-namespace. Colima's default k3s cluster is not a validated replacement for that
-guide. Several v7 Dockerfiles fetch `linux-amd64` health probes explicitly;
-native arm64 controller operation has not been verified. Use an amd64 Ubuntu
-VM with suitable emulation, or explicitly port and test the images for arm64.
-Do not assume the installed Mac CLIs prove either deployment works.
-
-## Source and image preparation
+Run on the Mac:
 
 ```sh
-git clone --branch v7.0.0 --depth 1 https://labs.etsi.org/rep/tfs/controller.git /path/to/clean/tfs-v7
-python3 deploy/teraflow/prepare.py /path/to/clean/tfs-v7
-git -C /path/to/clean/tfs-v7 diff
+limactl start transeuroogs-tfs
+limactl shell --workdir=/tmp transeuroogs-tfs sudo microk8s kubectl get pods -A
 ```
 
-`prepare.py` verifies commit `fb8707871eba26806cac7ac373c70b2bb5bd26fc`, requires
-a clean checkout and copies this project's driver, client and reconciler into
-the Device source. It changes one import to an explicit profile selector.
-Devices with `profile=transeuroogs-allocation-v1` use this driver; unspecified
-profiles retain upstream behavior. An unknown explicit profile is rejected.
-The preparation step was exercised against the pinned upstream checkout locally.
+Allow the database, DNS and controller services to become ready after boot.
+The WebUI forwarder starts automatically inside the VM. If its connection is
+stale after replacing the WebUI pod:
 
-Build the Device image using the upstream build/deployment procedure from that
-prepared checkout. Preserve its provenance and record the resulting digest;
-this bundle does not substitute an invented image tag or digest. Upstream build
-dependencies and other component images require their own reproducibility review.
-Core TFS components include context, device, pathcomp, service, nbi and webui;
-the upstream QKD lab adds qkd_app. The TransEuroOGS policy reconciler requires
-the Device driver, not the upstream service handler's physical link provisioning.
+```sh
+limactl shell --workdir=/tmp transeuroogs-tfs sudo systemctl restart transeuroogs-webui
+```
 
-## Cluster configuration after capacity is available
+Stop the VM to release its RAM and CPU allocation; this preserves its disk,
+controller database, KMS state and policy outbox:
 
-1. Deploy the isolated upstream lab and verify its own readiness. Bind UI/NBI
-   access to the test environment; supply local secrets outside Git. Do not run
-   upstream database-reset switches against an existing environment.
-2. Create a namespace-scoped `kms-management-mtls` Secret from synthetic lab CA,
-   controller certificate and private key files. No certificate/key bytes are
-   provided in this repository. Mount it read-only using `device-patch.yaml`.
-3. Replace that patch's image placeholder with the verified Device image digest.
-   Apply it only to `deviceservice` in the explicitly chosen lab namespace.
-4. Register a QKD node with its reachable TLS address/port and the settings in
-   `device-settings.example.json`. Match the KMS's URI-SAN and application/node
-   UUIDs. Grant the controller only that national node's required associations.
-5. Discover `__node__` and `__apps__`, poll `__transeuroogs_state__`, and send a
-   complete command as a TFS custom config rule at `/transeuroogs/allocation`.
-   Retain `command_id` and `expected_revision` across retries. Integrate
-   `Reconciler` into the policy process with one persistent outbox per node.
+```sh
+limactl stop transeuroogs-tfs
+```
 
-The YAML file is a **patch template**, not a runnable standalone Deployment.
-No live cluster mutation has been performed and no kubeconfig has been changed.
-The existing upstream QKD service handler creates physical/virtual links that
-this agent does not expose; end-to-end TFS service provisioning needs further
-integration and actual device/topology adapters. Never declare unsupported
-SetConfig/DeleteConfig/Subscribe calls successful to make that workflow pass.
+No host Docker context or kubeconfig is changed. The VM shares no host home or
+repository mounts. Only the WebUI is automatically forwarded, on loopback;
+Lima also maintains its own loopback SSH transport. KMS ingress permits only the
+Device service and lab-client pods in `tfs`, and still requires mTLS. The
+lab-client holds separate synthetic application, controller and investigator
+credentials solely to run acceptance checks.
 
-## Deployment acceptance still to run
+## Runtime and storage
 
-- Device-service discovery and policy actuation through TFS NBI/gRPC.
-- Namespace isolation and controller/app/peer identity rejection in the cluster.
-- Controller restart and lost reply with persisted policy outbox.
-- KMS restart and uninterrupted delivery under the last accepted local rule.
-- Two-domain partial failure reporting without overwriting another controller's
-  revision, plus metadata-authorised route changes while relay sends are pending.
-- Real topology/telemetry adapters and agreed 021/023 profile tests as those
-  models become accessible; independent 015 conformance assessment.
+| Component | Local profile |
+| --- | --- |
+| Lima | 2.2.0, Apple VZ and Rosetta binfmt |
+| Ubuntu | 24.04.4 LTS, arm64 |
+| VM allocation | 6 CPUs, 10 GiB RAM, 60 GiB sparse disk |
+| MicroK8s | 1.29/stable; observed 1.29.15; DNS, storage, registry, RBAC |
+| TeraFlow | v7.0.0, commit `fb8707871eba26806cac7ac373c70b2bb5bd26fc` |
+| Controller containers | linux/amd64 via Rosetta; original upstream Dockerfiles |
+| KMS | Native linux/arm64 Go binary, synthetic keys only |
+| Controller dependencies | CockroachDB 22.2.19, NATS 2.10, Apache Kafka 3.9.1 |
 
-See [the tested software profile](../../docs/SDN_ALLOCATION.md). Installing
-TeraFlow itself does not establish compliance with 015, 021 or 023.
+Context, Device, Service, PathComp frontend/backend, QKD App, NBI and WebUI run
+with one replica. Kafka is required even for this small deployment because NBI
+creates topics during startup. Grafana, full monitoring, autoscaling, ingress,
+HA and physical device adapters are outside this lab. Some upstream UI links
+therefore lead to features without a deployed backend.
+
+The upstream [deployment guide](https://tfs.etsi.org/documentation/latest/deployment_guide/)
+uses Ubuntu/MicroK8s. Rosetta is a local adaptation, not a native arm64 port or an
+upstream-supported production claim. Kafka's single-broker KRaft configuration
+uses the [official Apache image example](https://github.com/apache/kafka/blob/3.9.1/docker/examples/docker-compose-files/cluster/combined/plaintext/docker-compose.yml).
+
+Controller images are built into the VM registry and deployments select the
+verified amd64 child digest explicitly. KMS/NATS/Kafka use arm64 manifests.
+Actual digests are recorded in `/opt/transeuroogs/lab-state/*-images.json` and
+`kms-image.json` inside the VM. Source pinning does not freeze upstream pip/apt
+or mutable base-image dependencies; record each build's resolved image digests.
+
+The VM used approximately 24 GiB after deployment. The Mac must also accommodate
+build cache and growing sparse-disk blocks; check **both** host and guest space:
+
+```sh
+df -h /
+limactl shell --workdir=/tmp transeuroogs-tfs df -h /
+limactl shell --workdir=/tmp transeuroogs-tfs sudo docker system df
+```
+
+Start a fresh build with at least 35–40 GiB available on the host. The build
+helper stops before an image if guest usage exceeds 22 GiB; it cannot enforce
+host free space. If necessary, prune only this lab's unused build cache, then
+trim the guest. Do not prune volumes or the registry:
+
+```sh
+limactl shell --workdir=/tmp transeuroogs-tfs sudo docker builder prune --all --force --keep-storage=1GB
+limactl shell --workdir=/tmp transeuroogs-tfs sudo fstrim -av
+```
+
+PVC sizes under MicroK8s hostpath storage are requests, not hard disk quotas.
+Kafka retention is bounded for the lab, but controller state and the image
+registry still require monitoring. The database uses encrypted transport and a
+random local password; its lab `sslmode=require` does not validate a pinned DB
+CA. This is not the operational KMS/PostgreSQL deployment profile.
+
+## Reproduce in a fresh dedicated VM
+
+These instructions are for a new lab. For the existing VM, use start/stop above;
+do not rerun initialization against replacement state or delete PVCs to fix an
+error. Host prerequisites are Lima 2.2+, Rosetta and Go 1.27.1. The provided
+scripts reject a different VM hostname and unowned namespaces.
+
+From this repository on the Mac:
+
+```sh
+limactl create --name=transeuroogs-tfs deploy/teraflow/lima.yaml
+limactl start transeuroogs-tfs
+limactl copy deploy/teraflow/bootstrap-ubuntu.sh transeuroogs-tfs:/tmp/bootstrap-ubuntu.sh
+limactl shell --workdir=/tmp transeuroogs-tfs sudo bash /tmp/bootstrap-ubuntu.sh
+limactl shell --workdir=/tmp transeuroogs-tfs sudo install -d -o lima -m 0755 /opt/transeuroogs
+mkdir -p .local/teraflow/bin
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o .local/teraflow/bin/ ./src/cmd/kms ./src/cmd/kms-metadata ./src/cmd/test-pki
+tar -czf .local/teraflow/source.tar.gz AGENTS.md Makefile README.md go.mod go.sum deploy docs src tests emulator
+limactl copy .local/teraflow/source.tar.gz transeuroogs-tfs:/opt/transeuroogs/source.tar.gz
+limactl shell --workdir=/tmp transeuroogs-tfs mkdir -p /opt/transeuroogs/kms /opt/transeuroogs/bin
+limactl shell --workdir=/tmp transeuroogs-tfs tar -xzf /opt/transeuroogs/source.tar.gz -C /opt/transeuroogs/kms
+limactl copy .local/teraflow/bin/kms transeuroogs-tfs:/opt/transeuroogs/bin/kms
+limactl copy .local/teraflow/bin/kms-metadata transeuroogs-tfs:/opt/transeuroogs/bin/kms-metadata
+limactl copy .local/teraflow/bin/test-pki transeuroogs-tfs:/opt/transeuroogs/bin/test-pki
+limactl shell --workdir=/tmp transeuroogs-tfs
+```
+
+Run the remaining preparation **inside Linux**. A default case-insensitive macOS
+checkout collides on some upstream filenames and must not be used for building
+TeraFlow:
+
+```sh
+cd /opt/transeuroogs
+git clone --branch v7.0.0 --depth 1 https://labs.etsi.org/rep/tfs/controller.git controller
+python3 kms/deploy/teraflow/prepare.py controller
+cp kms/deploy/teraflow/deploy-lab.py .
+cp kms/deploy/teraflow/check-cluster.py .
+cp kms/deploy/teraflow/run-acceptance.sh .
+mkdir -p kms-image logs
+cp bin/kms kms-image/kms
+cp kms/deploy/teraflow/start-kms.sh kms-image/
+cp kms/deploy/teraflow/kms-lab.Dockerfile kms-image/Dockerfile
+sudo docker build --platform=linux/arm64 -t localhost:32000/transeuroogs/kms:lab kms-image
+sudo docker push localhost:32000/transeuroogs/kms:lab
+python3 deploy-lab.py prerequisites
+sudo microk8s kubectl -n crdb rollout status statefulset/cockroachdb --timeout=300s
+sudo microk8s kubectl -n kafka rollout status statefulset/kafka --timeout=300s
+python3 deploy-lab.py kms
+bash kms/deploy/teraflow/build-images.sh
+python3 deploy-lab.py controller
+python3 deploy-lab.py client
+sudo install -m 0644 kms/deploy/teraflow/transeuroogs-webui.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now transeuroogs-webui
+sudo microk8s kubectl -n tfs get pods
+```
+
+`prepare.py` requires the clean pinned checkout and installs the explicit profile
+selector. `profile=transeuroogs-allocation-v1` selects our driver; unspecified
+profiles retain upstream behavior, and unknown explicit profiles are rejected.
+Prepared source must be reviewed before refreshing it. Unsupported link
+provisioning and subscriptions remain errors.
+
+## Acceptance and recovery
+
+Inside the VM, after all pods are ready:
+
+```sh
+cd /opt/transeuroogs
+bash run-acceptance.sh
+```
+
+This is a deliberately disruptive **synthetic lab** test. It checks namespace
+and mTLS identity isolation, real HTTP NBI onboarding, a lost reply after a real
+policy commit, persistent-outbox recovery across controller/client/KMS pod
+restarts, matching single-use delivery and delivery with every TFS deployment
+scaled to zero. It restores the controller replicas on exit and compares signed
+policy-event counts with committed revisions. It consumes four synthetic keys.
+It does not constitute independent signature/conformance certification.
+
+Inspect state without consuming keys:
+
+```sh
+sudo microk8s kubectl -n tfs exec -i deployment/lab-client -- python - state < check-cluster.py
+```
+
+If a test stops with an unresolved outbox, recover the exact pending command
+before selecting a different intent:
+
+```sh
+sudo microk8s kubectl -n tfs exec -i deployment/lab-client -- python - lost-recover < check-cluster.py
+sudo microk8s kubectl -n tfs exec -i deployment/lab-client -- python - resume --nbi < check-cluster.py
+```
+
+The KMS state, controller database and its TLS certificates, Kafka data, and
+policy outbox have separate persistent volumes. The signing credential and test
+PKI live in private `/opt/transeuroogs/lab-state`. KMS private storage remains
+0700 with regular 0600 files; an init container copies its projected signing
+Secret into private memory rather than weakening the KMS's symlink checks.
+Startup seeds 64 synthetic keys only for new state; restarts use zero new keys.
+
+Test certificates expire after 24 hours. The initial synthetic keys expire after
+24 hours and allocation freshness limits are 12 hours. This bounded lab will
+therefore stop delivering without approved replenishment; restarting must not
+reseed or erase consumed-key tombstones. Continuous supply from a synthetic or
+IDQ provider is a separate adapter/deployment step. For another test-credential
+window, generate fresh lab PKI with `bin/test-pki --out=lab-state/pki`, run
+`python3 deploy-lab.py kms`, and restart the KMS, Device and lab-client deployments
+together. Keep signing credentials, bootstrap policy and all state volumes.
+Renewing certificates does not renew keys or change expiry.
+
+The reusable `Reconciler` supplies one-node policy logic and a durable outbox.
+In this lab the acceptance adapter observes KMS metadata over mTLS and sends
+writes through TeraFlow NBI/Device. No continuous multi-country policy service,
+controller HA, real telemetry adapter, physical-path provisioning, SES/IDQ
+interoperability or 021/023 wire profile is claimed. Those remain subsequent
+milestones.

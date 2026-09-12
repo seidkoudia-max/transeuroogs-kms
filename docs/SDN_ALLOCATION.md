@@ -3,8 +3,10 @@
 Implemented software increment, 2026-09-12. Use **TeraFlow SDN** as the controller
 and add a TransEuroOGS policy application and KMS driver. Building a new general
 SDN controller is outside this increment. The runnable local test exercises the
-actual v7 driver contract against a KMS over mTLS; a full TeraFlow cluster has
-**not** been deployed or validated.
+actual v7 driver contract against a KMS over mTLS. A real TeraFlow v7 controller
+is also deployed in the isolated local Ubuntu/MicroK8s allocation lab; see the
+[deployment acceptance record](../deploy/teraflow/ACCEPTANCE.md). This does not
+extend the KMS profile to physical link/service provisioning.
 
 ## Responsibility and standards boundary
 
@@ -20,7 +22,7 @@ introduces no cross-country control dependency.
 | ETSI GS QKD 015, SDN controller–node agent | Published V2.1.1, April 2022 | Bounded node/application reads and per-application local-storage TTL write; see [015 profile](../api/etsi015/README.md) |
 | ETSI GS QKD 021, orchestration for interoperable KMS | Stable draft 0.0.1, 2025-12-02; public repository contains no model | No wire implementation; needs accessible agreed draft/model and profile |
 | ETSI GS QKD 023, monitoring | Stable draft 0.0.6, 2026-06-08; draft document requires ETSI access | No wire implementation; project snapshot polling is not labelled 023 |
-| TeraFlow SDN | v7.0.0, `fb8707871eba26806cac7ac373c70b2bb5bd26fc` | Opt-in Device driver and durable one-domain policy reconciler; cluster acceptance pending |
+| TeraFlow SDN | v7.0.0, `fb8707871eba26806cac7ac373c70b2bb5bd26fc` | Opt-in Device driver and durable one-domain policy reconciler; local allocation cluster deployed |
 
 Primary references: [015 publication](https://www.etsi.org/deliver/etsi_gs/QKD/001_099/015/02.01.01_60/gs_qkd015v020101p.pdf),
 [021 work item](https://portal.etsi.org/webapp/WorkProgram/Report_WorkItem.asp?WKI_ID=67987),

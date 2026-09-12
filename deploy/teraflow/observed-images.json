@@ -1,0 +1,35 @@
+{
+  "date": "2026-09-12",
+  "scope": "Synthetic local TeraFlow allocation laboratory; no conformance certification",
+  "controller_source": "fb8707871eba26806cac7ac373c70b2bb5bd26fc",
+  "kms_source": "5e8e172421c11b23407a355ca4ea8ff5188cc64a",
+  "controller_platform": "linux/amd64 through Rosetta on Linux arm64",
+  "controller": {
+    "context": "sha256:b6ac040ab7b7235647f8652fff86e94b0eece800f98e466f2d47375400084bf7",
+    "device": "sha256:0d2aa6b4867719a57da77c62d8f9cd0fb97c17486a5b785bf1a2daf87fdbd26a",
+    "service": "sha256:267429f25657b07efdd818a6a68104ebe82fbdb1559eeba53ed44f04012e35dc",
+    "pathcomp-frontend": "sha256:7c70262915d88a19b1d2bd4bf49febd16fff33b0c6c6b4a5b1a3bf79d4d61838",
+    "pathcomp-backend": "sha256:fc9c9bdfaa7700c382b5fe5865d7803bc9ad7e417d8bf19ac3d3a9f5e772b1e5",
+    "qkd_app": "sha256:ac959f4c5a62883e5dad5c6d15388b48b12995a3bd3c16c440f7440331f621f5",
+    "nbi": "sha256:8986b0c92ae6f278c0b22241823343551642bfd5d56cc569104c18db4c42c642",
+    "webui": "sha256:654cf860127a4a6f843a3a18b435afc2408aa818e084917d617d8fe6c7ae0145"
+  },
+  "kms": {
+    "platform": "linux/arm64",
+    "digest": "sha256:14f9345fe873bf80099c24fd36a358d70e30b608d249b2145595413dbdfa1b1e"
+  },
+  "dependencies": {
+    "cockroachdb": {
+      "platform": "linux/amd64",
+      "image": "cockroachdb/cockroach@sha256:7397641f5b8ffc18a9ab01f7cc6d445bc1fb558fe17a2068c59e0689556c468a"
+    },
+    "nats": {
+      "platform": "linux/arm64",
+      "image": "nats@sha256:e3998ee69d4f40928019753acacce3275c038d209748de6587f6a21de0667fa1"
+    },
+    "kafka": {
+      "platform": "linux/arm64",
+      "image": "apache/kafka@sha256:39bc3b30084ad6ab33ad2c9a525f15c942bf097b18cb2a1825afa6df3411f8b5"
+    }
+  }
+}
