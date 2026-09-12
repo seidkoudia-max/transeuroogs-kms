@@ -312,6 +312,9 @@ func (c *Client) Probe(ctx context.Context, id string) error {
 	return nil
 }
 func (c *Client) Send(ctx context.Context, id string, t Transfer) error {
+	if c.peers[id].Mode == peering.QKDRelay {
+		return core.ErrUnauthorized
+	}
 	return c.request(ctx, id, "POST", peering.Base(c.peers[id].Mode), t, 202, nil)
 }
 func (c *Client) Ack(ctx context.Context, id string, a []Ack) error {
@@ -319,4 +322,12 @@ func (c *Client) Ack(ctx context.Context, id string, a []Ack) error {
 }
 func (c *Client) Void(ctx context.Context, id string, v Void) error {
 	return c.request(ctx, id, "POST", peering.Base(c.peers[id].Mode)+"/void", v, 202, nil)
+}
+
+// SendProtected accepts only the opt-in protected project peer profile.
+func (c *Client) SendProtected(ctx context.Context, id string, frame any) error {
+	if c.peers[id].Mode != peering.QKDRelay {
+		return core.ErrUnauthorized
+	}
+	return c.request(ctx, id, "POST", peering.Base(peering.QKDRelay), frame, 202, nil)
 }

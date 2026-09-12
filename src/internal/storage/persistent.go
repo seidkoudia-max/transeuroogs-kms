@@ -7,6 +7,7 @@ import (
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/allocation"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/durable"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/federation"
 )
 
 type savedEntry struct {
@@ -15,10 +16,12 @@ type savedEntry struct {
 	SlaveMaterial  []byte
 }
 type savedReservation struct {
+	Pool        core.PoolRef `json:",omitzero"`
 	Association core.Association
 	IDs         []core.KeyID
 }
 type memoryState struct {
+	Protection   *federation.State `json:",omitempty"`
 	Allocation   *allocation.State `json:",omitempty"`
 	Version      int
 	Capacity     int
@@ -38,6 +41,10 @@ type Persistent struct {
 var _ core.Repository = (*Persistent)(nil)
 
 func OpenPersistent(capacity int, binding string, store durable.Store, raw []byte, options ...*allocation.Setup) (*Persistent, error) {
+	return OpenPersistentControlled(capacity, binding, store, raw, nil, options...)
+}
+
+func OpenPersistentControlled(capacity int, binding string, store durable.Store, raw []byte, controls *federation.Config, options ...*allocation.Setup) (*Persistent, error) {
 	defer clear(raw)
 	if store == nil || len(options) > 1 {
 		return nil, core.ErrInvalid
@@ -60,6 +67,7 @@ func OpenPersistent(capacity int, binding string, store durable.Store, raw []byt
 			return nil, durable.ErrState
 		}
 		m.allocation = s.Allocation
+		m.protection = s.Protection
 		for id, e := range s.Keys {
 			if !id.Valid() || e.Meta.ID != id || !e.Meta.Association.Valid() {
 				p.Close()
@@ -91,7 +99,30 @@ func OpenPersistent(capacity int, binding string, store durable.Store, raw []byt
 					return nil, durable.ErrState
 				}
 			}
-			m.reservations[token] = reservation{r.Association, r.IDs}
+			m.reservations[token] = reservation{r.Pool, r.Association, r.IDs}
+		}
+	}
+	var pairs []core.Association
+	if controls != nil {
+		for _, p := range controls.Pools {
+			pairs = append(pairs, p.Association)
+		}
+	}
+	m.protection, err = federation.Open(controls, m.protection, raw != nil, pairs)
+	if err != nil {
+		p.Close()
+		return nil, durable.ErrState
+	}
+	for _, r := range m.reservations {
+		if r.pool != m.protection.Ref(r.association) {
+			p.Close()
+			return nil, durable.ErrState
+		}
+	}
+	for _, k := range m.keys {
+		if k.meta.Pool != m.protection.Ref(k.meta.Association) {
+			p.Close()
+			return nil, durable.ErrState
 		}
 	}
 	m.allocation, err = allocation.Open(m.setup, m.allocation, raw != nil)
@@ -110,13 +141,13 @@ func (p *Persistent) save() error {
 		return durable.ErrState
 	}
 	m := p.memory
-	s := memoryState{Allocation: m.allocation, Version: 1, Capacity: m.capacity, Binding: p.binding, Keys: map[core.KeyID]savedEntry{}, Order: m.order, Reservations: map[core.KeyID]savedReservation{}}
+	s := memoryState{Protection: m.protection, Allocation: m.allocation, Version: 1, Capacity: m.capacity, Binding: p.binding, Keys: map[core.KeyID]savedEntry{}, Order: m.order, Reservations: map[core.KeyID]savedReservation{}}
 	for id, e := range m.keys {
 		expire(e, m.now())
 		s.Keys[id] = savedEntry{e.meta, e.master, e.slave}
 	}
 	for id, r := range m.reservations {
-		s.Reservations[id] = savedReservation{r.association, r.ids}
+		s.Reservations[id] = savedReservation{r.pool, r.association, r.ids}
 	}
 	b, err := json.Marshal(s)
 	defer clear(b)

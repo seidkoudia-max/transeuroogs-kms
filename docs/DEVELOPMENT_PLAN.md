@@ -10,11 +10,11 @@ M0–M7 are engineering stages, not project calendar months or WP4 milestone IDs
 | M1 | Atomic Go core, memory repository, synthetic ingestion | Merged into main |
 | M2 | Initial 014 profile, mTLS, two-SAE local lab, CI | Merged into main |
 | M3 | Published 020 profile, durable async transfer, trusted relay, distinct-key multipath/failover | Merged into main |
-| M4 | PostgreSQL material/metadata separation, operational PKI, audit/rate-limit hardening | Implemented software baseline on operational branch; site PKI, HA/HSM and deployment acceptance remain |
+| M4 | PostgreSQL material/metadata separation, operational PKI, audit/rate-limit hardening | Software baseline plus optional PKCS#11 wrapping and independent checkpoint witness implemented; physical HSM/site PKI, HA and deployment acceptance remain |
 | M5a | Upstream EAGLE-1 014 client, durable paired ingestion and two-site service emulator with delayed offline relay | Implemented segmented synthetic profile; partner validation pending |
 | M5b | SES deployment profile and external interoperability validation | Needs profile and partner test access; gateway authorisation is confirmed |
 | M6 | LU/GR demonstration, then DE and IE deployments of the same KMS/adapter | Planned |
-| M7 | Metadata foundation, evidence/policy and incident tracing, then metadata-only SDN-facing management | Local policies, signed command history, bounded 015 agent and TeraFlow driver/reconciler implemented; real local controller allocation lab deployed; provider attestation, physical service provisioning and 021/023 integration pending; see [SDN_ALLOCATION](SDN_ALLOCATION.md) |
+| M7 | Metadata foundation, evidence/policy and incident tracing, then metadata-only SDN-facing management | Local policies, signed command/protection history, provider-evidence adapter contract, receipts, bounded 015 agent and TeraFlow driver/reconciler implemented; SES evidence agreement, physical service provisioning and 021/023 integration pending; see [REMOTE_QCI_UPGRADES](REMOTE_QCI_UPGRADES.md) |
 
 M2 acceptance: `make check` and `make demo`; the demo must verify 1,000 matching
 keys, unique IDs, pool depletion, mTLS and rejection of a repeat slave delivery.
@@ -102,19 +102,33 @@ The [Luxembourg two-link lab](../deploy/luxembourg/README.md) extends this with
 four synthetic endpoint processes across two logical link domains, interworking
 at the shared JFK trusted site. It exercises relay recovery under geographic-link
 outages and local allocation through the deployed controller. M6 is still planned:
-no IDQ/QUKY equipment is connected, upstream 014 ingestion and inter-KMS mode
-cannot yet be combined, and QKD link-key consumption/protected relay require an
-agreed integration increment. These tests do not establish physical interoperability.
+no IDQ/QUKY equipment is connected. The new protected transport composes per-peer
+014 link intake with inter-KMS relay in synthetic tests. Top-level segmented SES
+final-key intake remains separate. The running Luxembourg lab has not been
+upgraded to this transport. These tests do not establish physical interoperability.
 
-The next proposed cross-cutting increment is explicit
+The new cross-cutting increment implements explicit
 [OGS-domain key pools](KEY_POOL_DESIGN.md): immutable peer/service pool bindings,
 pool-scoped authorization and lifecycle state, a synthetic three-segment mapping
-test, then metadata/SDN integration and SES acceptance. P1–P5 in that document are
-planned work, not completed M5/M6 milestones. The pool model preserves the
+test and metadata/SDN integration. P1–P4 have bounded runtime coverage; P5 actual
+SES mapping/acceptance remains pending. These are not completed M5/M6 deployment
+milestones. The pool model preserves the
 existing SAE-based 014 interface and delegates provider pairing to EAGLE-1.
 
-M7 remains partial: provider attestation ingestion, signing rotation/archive,
-application usage receipts, incident holds/remediation, bandwidth/priority
-scheduling, controller service provisioning and agreed 021/023 draft integration
-require further increments. No SES agreement, production acceptance, independent
+M7 remains partial: actual SES evidence translation/acceptance, signing
+rotation/archive, bandwidth/priority scheduling, controller service provisioning
+and agreed 021/023 draft integration require further increments. No SES
+agreement, production acceptance, independent
 conformance or paper-level interoperability is established by these tests.
+
+## Remote-QCI protection increment (2026-09-12)
+
+The [remote-QCI runtime](REMOTE_QCI_UPGRADES.md) implements typed pool bindings,
+SES input gates, scoped signed provider evidence, incident holds/invalidation,
+non-consuming reconciliation, application pool context and durable receipts,
+protected terrestrial relay with per-peer 014 link keys, optional PKCS#11
+wrapping and an independent checkpoint witness. `make federation-demo` adds
+separate-process pool/incident/restart acceptance. The full remaining scope and
+external inputs are recorded there; lifetime archival/signing rollover, real
+SES/vendor acceptance, automatic HA and an agreed PQ profile remain outstanding.
+This source increment does not alter the running TeraFlow lab or complete M6.

@@ -121,9 +121,13 @@ Wrapping-key rotation uses a new private file, e.g. `v2.key`, then an atomic
 replacement of `active` with `v2`. The next committed snapshot uses that key.
 Retain old generations until every retained backup encrypted with them has
 expired. The runtime never deletes old keys. The file-ring implementation keeps
-keys outside the database, but still trusts the KMS host; an HSM/secret-service
-implementation can implement `wrapping.Protector`. No HSM driver, device-specific
-rotation or HSM certification is claimed. Set a rotation policy well before
+keys outside the database, but still trusts the KMS host. The optional `pkcs11`
+build now implements `wrapping.Protector` using pre-provisioned non-exportable
+AES token objects. An independent mTLS checkpoint witness also detects rollback
+of the database and local checkpoint together. See
+[REMOTE_QCI_UPGRADES](REMOTE_QCI_UPGRADES.md) for configuration, SoftHSM coverage
+and recovery boundaries. Physical HSM acceptance and automatic HA remain open.
+Set a rotation policy well before
 2^32 AES-GCM encryptions under any one wrapping key.
 
 ## Audit and admission control

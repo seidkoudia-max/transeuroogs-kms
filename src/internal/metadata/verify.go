@@ -124,6 +124,9 @@ func VerifyPages(pages []SignedPage, trust []Trust, audience string) ([]Event, [
 			if e.Attempt != nil && (!e.Attempt.valid() || e.PreviousKeyEvent != "" || !slices.Equal(e.Actions, []string{"upstream_" + e.Attempt.Status})) {
 				return nil, nil, ErrEvidence
 			}
+			if e.Protection != nil && (!e.Protection.valid() || e.PreviousKeyEvent != "" || !slices.Equal(e.Actions, []string{"protection_observed"})) {
+				return nil, nil, ErrEvidence
+			}
 			if e.Control != nil && (!e.Control.Valid() || e.Control.AppliedAt.After(e.RecordedAt) || e.PreviousKeyEvent != "" || !slices.Equal(e.Actions, []string{"allocation_changed"})) {
 				return nil, nil, ErrEvidence
 			}

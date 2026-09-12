@@ -85,6 +85,7 @@ func Open(c Config, signing *Signing, inner durable.Store, raw []byte, project P
 	}
 	keys := map[core.KeyID]Record{}
 	controls := []allocation.Commit{}
+	protection := map[string]ProtectionRecord{}
 	attempts := map[string]AttemptView{}
 	seen := map[core.KeyID]bool{}
 	previous := ""
@@ -117,6 +118,13 @@ func Open(c Config, signing *Signing, inner durable.Store, raw []byte, project P
 				return nil, nil, durable.ErrState
 			}
 			attempts[event.Attempt.Reference] = *event.Attempt
+		} else if event.Protection != nil {
+			r := *event.Protection
+			if !r.valid() || event.PreviousKeyEvent != "" || !slices.Equal(event.Actions, []string{"protection_observed"}) {
+				clear(clean)
+				return nil, nil, durable.ErrState
+			}
+			protection[r.Reference] = r
 		} else if event.Control != nil {
 			if !event.Control.Valid() || event.Control.Revision != uint64(len(controls)+1) || event.Control.AppliedAt.After(event.RecordedAt) || event.PreviousKeyEvent != "" || !slices.Equal(event.Actions, []string{"allocation_changed"}) {
 				clear(clean)
@@ -128,7 +136,7 @@ func Open(c Config, signing *Signing, inner durable.Store, raw []byte, project P
 			return nil, nil, durable.ErrState
 		}
 	}
-	if !reflect.DeepEqual(controls, p.Controls) || !reflect.DeepEqual(keys, p.Keys) || len(recovered.Aliases) != len(p.Attempts) || len(attempts) != len(p.Attempts) {
+	if !reflect.DeepEqual(protection, p.Protection) || !reflect.DeepEqual(controls, p.Controls) || !reflect.DeepEqual(keys, p.Keys) || len(recovered.Aliases) != len(p.Attempts) || len(attempts) != len(p.Attempts) {
 		clear(clean)
 		return nil, nil, durable.ErrState
 	}
@@ -144,6 +152,15 @@ func Open(c Config, signing *Signing, inner durable.Store, raw []byte, project P
 }
 
 func (s *Store) normalize(p *Projection) error {
+	if p.Protection == nil {
+		p.Protection = map[string]ProtectionRecord{}
+	}
+	for id, r := range p.Protection {
+		if id != r.Reference || !r.valid() {
+			return ErrEvidence
+		}
+	}
+
 	if p.Controls == nil {
 		p.Controls = []allocation.Commit{}
 	}
@@ -284,6 +301,27 @@ func (s *Store) Save(raw []byte) error {
 			}
 		}
 	}
+	protectionIDs := []string{}
+	for id := range p.Protection {
+		protectionIDs = append(protectionIDs, id)
+	}
+	sort.Strings(protectionIDs)
+	for _, id := range protectionIDs {
+		r := p.Protection[id]
+		if old, ok := s.last.Protection[id]; !ok || !reflect.DeepEqual(old, r) {
+			if ok && (old.Association != r.Association || old.Pool != r.Pool || old.Reconciliation == nil || r.Reconciliation == nil || old.Reconciliation.Status != "query_pending") {
+				return durable.ErrState
+			}
+			if err := appendEvent(Event{Actions: []string{"protection_observed"}, Protection: &r}); err != nil {
+				return err
+			}
+		}
+	}
+	for id := range s.last.Protection {
+		if _, ok := p.Protection[id]; !ok {
+			return durable.ErrState
+		}
+	}
 	// Deterministic ordering makes batches reproducible without relying on Go maps.
 	ids := make([]string, 0, len(p.Keys))
 	for id := range p.Keys {
@@ -363,6 +401,9 @@ func (s *Store) Close() {
 }
 
 func eventPair(e Event) core.Association {
+	if e.Protection != nil {
+		return e.Protection.Association
+	}
 	if e.Record != nil {
 		return e.Record.Key.Association
 	}
@@ -386,6 +427,9 @@ func (s *Store) Key(id core.KeyID, audience, sae string, pairs []core.Associatio
 		return SignedKeyView{}, core.ErrUnavailable
 	}
 	v := KeyView{Profile: Profile, Issuer: s.cfg.Issuer, Audience: audience, Key: r.Key, SourceClass: r.SourceClass, SourceEvidence: r.SourceEvidence, GenerationTime: r.GenerationTime, LocalExpiresAt: r.LocalExpiresAt, RecordedAt: s.h.Observed, HistoryStarted: s.h.Started, EvidenceScope: "local_observation; provider_history_unknown"}
+	if r.ProviderEvidence != nil {
+		v.EvidenceScope = "local_observation; verified_project_provider_statement; SES_interoperability_unvalidated"
+	}
 	if sae == r.Key.Association.Master {
 		v.State = r.MasterState
 	}

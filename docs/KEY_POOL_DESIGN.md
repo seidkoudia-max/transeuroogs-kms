@@ -1,8 +1,10 @@
 # OGS domain pools and provider pairing
 
-Status: design proposal following the project owner's 2026-09-12 clarification.
-Explicit pool identifiers and pool mapping are **not implemented**. This document
-does not change deployed configuration, key delivery APIs or the SES contract.
+Status: P1/P2 implemented in the remote-QCI protection increment; P3/P4 have
+synthetic tests and runtime foundations. Actual SES pool mapping and shared-pool
+assignment require its interface agreement. See [REMOTE_QCI_UPGRADES](REMOTE_QCI_UPGRADES.md)
+for the exact implemented limits and acceptance. The deployment VM has not been
+upgraded by this source change.
 
 Each OGS domain needs a dedicated administrative pool namespace. Within that
 namespace, allocatable final-key pools must identify the remote OGS/service and
@@ -107,20 +109,21 @@ representation require their own reviewed profile; no standard field is assumed.
 
 | Increment | Deliverable and meaningful tests | Current status |
 | --- | --- | --- |
-| P1 | Typed pool registry, owner/service/peer binding, one SAE pair per pool, persisted revision; reject unauthorized, ambiguous and conflicting mappings | Planned |
-| P2 | Allocation and ingestion carry immutable pool context through the repository; cross-pool isolation, concurrent reservations, restart, replay, lost replies and mapping changes cannot cause reuse | Planned |
-| P3 | Three-segment synthetic provider models at least two remote OGS pools; verify unchanged KIDs, delayed readiness, wrong-pool requests and independent local consumption | Planned |
-| P4 | Pool-scoped metadata and TeraFlow policies; restricted views, signed mapping history and controller-outage enforcement | Planned |
-| P5 | Actual SES pool/service mapping adapter and joint acceptance with authenticated deployment inputs | Requires SES interface agreement and access |
+| P1 | Typed pool registry, owner/service/peer binding, one SAE pair per pool, persisted revision; reject unauthorized, ambiguous and conflicting mappings | Implemented and tested in bounded profile |
+| P2 | Allocation and ingestion carry immutable pool context through the repository; cross-pool isolation, concurrent reservations, restart, replay, lost replies and mapping changes cannot cause reuse | Implemented and tested in bounded profile |
+| P3 | Three-segment synthetic provider models at least two remote OGS pools; verify unchanged KIDs, delayed readiness, wrong-pool requests and independent local consumption | Two-service isolation covered in repository tests; separate-process demo covers one corresponding remote service; one upstream pool per segmented process |
+| P4 | Pool-scoped metadata and TeraFlow policies; restricted views, signed mapping history and controller-outage enforcement | KMS views/history and existing association policies implemented; acceptance of new pool fields in the running TeraFlow deployment remains pending |
+| P5 | Actual SES pool/service mapping adapter and joint acceptance with authenticated deployment inputs | Bounded 014/evidence adapter implemented; actual SES mapping/acceptance pending |
 
-The present `core.Key` has KID and an ordered association, but no pool field.
-`upstream.Config` specifies one gateway pair and `ingest.Repository` binds that
-profile and one local pair to its durable journal. Metadata namespace identifies
-evidence scope; it is not an enforced key-pool selector. Thus the existing
-single-pair demos provide lifecycle foundations but do not pass P1–P5.
+`core.Key` and local lifecycle records now carry a `PoolRef`. The registry and
+incident controls share each repository's durable snapshot. `upstream.Config`
+still specifies one gateway pair per segmented process; multiple such processes
+can coexist in the trusted OGS environment. Local and relay repositories support
+multiple configured application pools. Provider pool sharing across unrelated
+applications remains rejected until its matching assignment contract is agreed.
 
-This work complements, rather than completes, the separate integration of
-upstream 014 ingestion with terrestrial relay mode and QKD link-key consumption.
+A separate opt-in protected terrestrial relay now consumes per-peer upstream
+014 link keys, using standard JWE authenticated encryption.
 The Luxembourg two-link lab does not contain an EAGLE-1 pool synchronization
 service. See [EAGLE1_INTEGRATION](EAGLE1_INTEGRATION.md) and the
 [SES interface questions](SES_METADATA_CHECKLIST.md).

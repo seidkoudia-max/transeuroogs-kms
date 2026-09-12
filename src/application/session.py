@@ -150,6 +150,30 @@ class KMS:
         finally:
             conn.close()
 
+    def protection(self, path="state", body=None):
+        """Material-free project endpoint; receipt POSTs are idempotent."""
+        p = self.config["kms"]
+        url = urllib.parse.urlsplit(p["url"])
+        if url.scheme != "https" or not url.hostname or url.path or url.query or url.fragment or url.username:
+            raise SessionError("invalid KMS endpoint")
+        conn = http.client.HTTPSConnection(url.hostname, url.port or 443, timeout=5, context=context(p))
+        try:
+            conn.connect()
+            peer_identity(conn.sock, p["identity"])
+            conn.request("GET" if body is None else "POST", "/federation/v1/" + path,
+                         body=None if body is None else encode(body), headers={"Content-Type": "application/json", "Connection": "close"})
+            response = conn.getresponse()
+            raw = response.read(MAX_FRAME + 1)
+            if path == "receipts" and response.status == 204:
+                return None
+            if path == "state" and response.status == 200:
+                return decode(raw)
+            raise SessionError("protection service unavailable")
+        except (OSError, ValueError, TypeError, KeyError, http.client.HTTPException):
+            raise SessionError("protection request failed") from None
+        finally:
+            conn.close()
+
     def allocate(self):
         return self._request(self.config["slave"], "enc_keys", {"number": 1, "size": 256})
 
@@ -180,6 +204,7 @@ class Ledger:
         self.db.execute("PRAGMA synchronous=FULL")
         self.db.execute("CREATE TABLE IF NOT EXISTS binding (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
         self.db.execute("CREATE TABLE IF NOT EXISTS sessions (sid TEXT PRIMARY KEY, kid TEXT UNIQUE, state TEXT NOT NULL, expires INTEGER NOT NULL)")
+        self.db.execute("CREATE TABLE IF NOT EXISTS receipts (id TEXT PRIMARY KEY, sid TEXT NOT NULL, status TEXT NOT NULL, body TEXT NOT NULL, sent INTEGER NOT NULL DEFAULT 0, UNIQUE(sid,status))")
         row = self.db.execute("SELECT value FROM binding WHERE id=1").fetchone()
         value = hashlib.sha256(encode(binding)).hexdigest()
         if row and row[0] != value:
@@ -214,6 +239,30 @@ class Ledger:
             n = self.db.execute("UPDATE sessions SET state='confirmed' WHERE sid=? AND state='uncertain' AND expires>?", (sid, int(time.time()))).rowcount
             if n != 1:
                 raise SessionError("session expired")
+
+    def queue_receipt(self, config, message, status):
+        """Commit a stable receipt ID before any HTTP request; never queue bytes."""
+        if status not in ("confirmed", "retired"):
+            raise SessionError("invalid receipt status")
+        with self.lock, self.db:
+            row = self.db.execute("SELECT kid,state FROM sessions WHERE sid=?", (message["session_id"],)).fetchone()
+            if row != (message["key_id"], "confirmed"):
+                raise SessionError("unconfirmed receipt")
+            if self.db.execute("SELECT count(*) FROM receipts").fetchone()[0] >= self.capacity * 2:
+                raise SessionError("receipt capacity reached")
+            body = {"receipt_id": str(uuid.uuid4()), "session_id": message["session_id"], "key_id": message["key_id"],
+                    "binding": config["pool"], "association": {"master": config["master"], "slave": config["slave"]},
+                    "sae_id": config[config["role"]], "status": status}
+            self.db.execute("INSERT OR IGNORE INTO receipts(id,sid,status,body) VALUES(?,?,?,?)",
+                            (body["receipt_id"], body["session_id"], status, encode(body).decode()))
+
+    def flush_receipts(self, kms):
+        with self.lock:
+            rows = self.db.execute("SELECT id,body FROM receipts WHERE sent=0 ORDER BY rowid").fetchall()
+        for receipt_id, raw in rows:
+            kms.protection("receipts", decode(raw.encode()))
+            with self.lock, self.db:
+                self.db.execute("UPDATE receipts SET sent=1 WHERE id=?", (receipt_id,))
 
     def close(self):
         self.db.close()
@@ -281,22 +330,68 @@ class InnerTLS:
 def binding(config):
     result = {name: config[name] for name in ("role", "identity", "peer_identity", "master", "slave")}
     result["kms_identity"] = config["kms"]["identity"]
+    if "pool" in config:
+        pool_context(config)
+        result["pool"] = config["pool"]
     return result
+
+
+def pool_context(config):
+    pool = config["pool"]
+    fields = {"pool_id", "remote_pool_id", "binding_revision", "service_id", "service_epoch", "purpose"}
+    if not isinstance(pool, dict) or set(pool) != fields:
+        raise SessionError("invalid pool binding")
+    if type(pool["binding_revision"]) is not int or not 0 < pool["binding_revision"] < 2**64:
+        raise SessionError("invalid pool revision")
+    for field in fields - {"binding_revision"}:
+        value = pool[field]
+        if not isinstance(value, str) or not 0 < len(value) <= 128 or value.strip() != value or any(c in value for c in "\r\n\x00"):
+            raise SessionError("invalid pool reference")
+    master, slave = pool["pool_id"], pool["remote_pool_id"]
+    if config["role"] == "slave":
+        master, slave = slave, master
+    return {"service_id": pool["service_id"], "service_epoch": pool["service_epoch"], "purpose": pool["purpose"],
+            "master_pool_id": master, "slave_pool_id": slave}
 
 
 def validate_notification(config, message):
     fields = {"version", "session_id", "key_id", "client", "server", "master", "slave", "expires"}
+    if "pool" in config:
+        fields.add("pool_context")
     if not isinstance(message, dict) or set(message) != fields:
         raise SessionError("invalid notification")
-    if type(message["version"]) is not int or message["version"] != 1 or not identifier(message["session_id"]) or not identifier(message["key_id"]):
+    if type(message["version"]) is not int or message["version"] != (2 if "pool" in config else 1) or not identifier(message["session_id"]) or not identifier(message["key_id"]):
         raise SessionError("invalid notification")
     if message["client"] != config["peer_identity"] or message["server"] != config["identity"]:
         raise SessionError("notification identity mismatch")
     if message["master"] != config["master"] or message["slave"] != config["slave"]:
         raise SessionError("notification association mismatch")
+    if "pool" in config and message["pool_context"] != pool_context(config):
+        raise SessionError("notification pool or service mismatch")
     now = int(time.time())
     if type(message["expires"]) is not int or not now < message["expires"] <= now + 60:
         raise SessionError("notification expired")
+
+
+def protected_application(config, ledger, kms, inner, message, application):
+    if "pool" not in config:
+        if application is not None:
+            application(inner, message)
+        return
+    ledger.queue_receipt(config, message, "confirmed")
+    try:
+        ledger.flush_receipts(kms)
+        state = kms.protection()
+        pool = [p for p in state.get("pools", []) if p.get("pool", {}).get("binding") == config["pool"]]
+        if len(pool) != 1 or pool[0].get("allocation_gate") != "":
+            raise SessionError("pool held or binding changed; fresh session required")
+        if application is not None:
+            application(inner, message)
+    finally:
+        # This means the reference session will no longer call the application.
+        # It is not an attestation of a third-party encryptor's secure erasure.
+        ledger.queue_receipt(config, message, "retired")
+        ledger.flush_receipts(kms)
 
 
 def receive_session(config, stream, ledger, kms, application=None):
@@ -315,8 +410,7 @@ def receive_session(config, stream, ledger, kms, application=None):
             raise SessionError("confirmed context mismatch")
         ledger.confirm(msg["session_id"])
         send_frame(inner, msg)
-        if application is not None:
-            application(inner, msg)
+        protected_application(config, ledger, kms, inner, msg, application)
         return {"session_id": msg["session_id"], "key_id": msg["key_id"], "state": "confirmed"}
     finally:
         key[:] = bytes(len(key))
@@ -332,6 +426,9 @@ def send_session(config, ledger, kms, application=None):
         ledger.bind(sid, kid)
         msg = {"version": 1, "session_id": sid, "key_id": kid, "client": config["identity"],
                "server": config["peer_identity"], "master": config["master"], "slave": config["slave"], "expires": expires}
+        if "pool" in config:
+            msg["version"] = 2
+            msg["pool_context"] = pool_context(config)
         p = config["tls"]
         with socket.create_connection((config["peer_host"], config["peer_port"]), timeout=5) as sock:
             with context(p).wrap_socket(sock, server_hostname=config["peer_host"]) as stream:
@@ -347,8 +444,7 @@ def send_session(config, ledger, kms, application=None):
                 if receive_frame(inner) != msg:
                     raise SessionError("confirmed context mismatch")
                 ledger.confirm(sid)
-                if application is not None:
-                    application(inner, msg)
+                protected_application(config, ledger, kms, inner, msg, application)
                 return {"session_id": sid, "key_id": kid, "state": "confirmed"}
     finally:
         key[:] = bytes(len(key))

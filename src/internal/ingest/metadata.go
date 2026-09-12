@@ -40,7 +40,11 @@ func ProjectMetadata(c upstream.Config, a core.Association) metadata.Projector {
 			if k == nil {
 				return p, core.ErrInvalid
 			}
-			r := metadata.Record{Key: metadata.KeyRef{ID: id, Association: a}, SourceClass: "synthetic", SourceEvidence: "unverified_claim", CollectionIntent: k.Created, LocalExpiresAt: k.Expires, Role: "ingest_" + c.Role, HoldingMaterial: len(k.Material) > 0, Upstream: c.ServerIdentity, Uncertain: uncertain[id]}
+			r := metadata.Record{Key: metadata.KeyRef{Pool: k.Pool, ID: id, Association: a}, SourceClass: "synthetic", SourceEvidence: "unverified_claim", CollectionIntent: k.Created, LocalExpiresAt: k.Expires, Role: "ingest_" + c.Role, HoldingMaterial: len(k.Material) > 0, Upstream: c.ServerIdentity, Uncertain: uncertain[id]}
+			if c.Profile != upstream.Profile {
+				r.SourceClass = "unknown"
+				r.SourceEvidence = "unknown"
+			}
 			if c.Role == "master" {
 				r.MasterState = k.State
 			} else {
@@ -48,6 +52,7 @@ func ProjectMetadata(c upstream.Config, a core.Association) metadata.Projector {
 			}
 			p.Keys[id] = r
 		}
+		metadata.ProjectProtection(&p, s.Protection)
 		return p, nil
 	}
 }

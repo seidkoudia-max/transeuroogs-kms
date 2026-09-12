@@ -71,6 +71,22 @@ dedicated application identities through their operational CA.
 The receiver config uses `role: slave`, reverses application identities and
 points to its own local KMS and credentials. It retains the same ordered SAE pair.
 
+For a federation-enabled KMS, configure the application's `pool` object with
+the exact local `pool_id`, `remote_pool_id`, `binding_revision`, `service_id`,
+`service_epoch` and `purpose` from its KMS registry. Version 2 notifications
+authenticate both pool names and the common service/epoch/purpose; local revisions
+are pinned independently in each application ledger. A configured pool rejects
+version 1 notifications. See [REMOTE_QCI_UPGRADES](REMOTE_QCI_UPGRADES.md).
+
+After key confirmation, this mode sends a `confirmed` receipt to the local KMS
+and checks the pool's current hold before invoking the application callback.
+It records `retired` when leaving that callback. A durable outbox preserves each
+receipt ID across lost replies/restart and flushes in order. These are authenticated
+application reports, not proof of commercial-device erasure. The callback must
+bound its session duration and handle incident-driven rekeying in its own
+application integration; the one-time gate check cannot interrupt an already
+running callback or revoke previously delivered bytes.
+
 ```sh
 python3.14 src/application/session.py --config receiver.json --listen 0.0.0.0 --port 9443
 python3.14 src/application/session.py --config sender.json

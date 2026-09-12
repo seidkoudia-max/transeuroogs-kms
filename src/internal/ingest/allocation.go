@@ -4,15 +4,36 @@ import (
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/allocation"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/durable"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/upstream"
 	"time"
 )
 
 var _ allocation.Manager = (*Repository)(nil)
 
-func (r *Repository) policy(n int, collected, expires time.Time) string {
-	// The only accepted upstream profile is synthetic. Its 014 response contains
-	// no authenticated generation metadata; TLS identity does not attest origin.
+func (r *Repository) policy(n int, collected, expires time.Time, ids ...core.KeyID) string {
+	// Without the separately verified evidence adapter, TLS alone cannot attest origin.
 	f := allocation.Facts{Source: "synthetic", Issuer: r.cfg.ServerIdentity, Evidence: "unverified_claim", Collected: collected, Expires: expires}
+	if r.cfg.Profile != upstream.Profile {
+		f.Source = "unknown"
+		f.Evidence = "unknown"
+	}
+	if len(ids) == 0 && r.s.Protection != nil {
+		if _, ok := r.provider.(EvidenceProvider); ok {
+			return r.s.Allocation.Preflight(r.pair, n)
+		}
+	}
+	for _, id := range ids {
+		if reason := r.s.Protection.Check(r.pair, id, r.now()); reason != "" {
+			return reason
+		}
+		facts := allocation.ProviderFacts(f, r.s.Protection, id, r.setup)
+		if reason := r.s.Allocation.Check(r.pair, n, facts, r.now()); reason != "" {
+			return reason
+		}
+	}
+	if len(ids) > 0 {
+		return ""
+	}
 	return r.s.Allocation.Check(r.pair, n, f, r.now())
 }
 func (r *Repository) ApplyCommand(actor string, c allocation.Command) (allocation.Commit, error) {
@@ -47,6 +68,8 @@ func (r *Repository) ManagementView(pairs []core.Association) (allocation.View, 
 	out := r.s.Allocation.View(r.setup, pairs, r.now())
 	for i := range out.Apps {
 		app := &out.Apps[i]
+		app.Pool = r.s.Protection.Ref(app.Association)
+		app.ProtectionGate = r.s.Protection.Gate(app.Association)
 		app.Counts.Capacity = r.capacity
 		for _, k := range r.s.Keys {
 			if k.State == core.Consumed {

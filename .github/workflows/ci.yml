@@ -28,6 +28,8 @@ jobs:
         run: make relay-demo
       - name: Verify three-segment ingestion, independent CAs, KID preservation and restart
         run: make segmented-demo
+      - name: Verify OGS pool bindings, SES input reporting and durable incident holds
+        run: make federation-demo
       - name: Verify durable metadata, restricted views and signed two-site incident tracing
         run: make metadata-demo
       - name: Verify local allocation, controller isolation and pinned TeraFlow driver contract
@@ -74,6 +76,8 @@ jobs:
         with:
           python-version: '3.14'
       - name: Install PostgreSQL test binaries
-        run: sudo apt-get update && sudo apt-get install -y postgresql libpq-dev
+        run: sudo apt-get update && sudo apt-get install -y postgresql libpq-dev softhsm2
       - name: PostgreSQL recovery, authorization and authenticated application sessions
         run: make operational-demo
+      - name: PKCS11 non-exportable synthetic key wrapping and rotation
+        run: KMS_TEST_PKCS11_MODULE=/usr/lib/softhsm/libsofthsm2.so go test -race -tags pkcs11 ./src/internal/wrapping

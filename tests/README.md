@@ -78,10 +78,11 @@ delivery contracts and the master-offline scenario still pass.
 | META-012 | `emulator/eagle1-kms/metadata_lab.py` with `make metadata-demo` |
 | OPS-002/003 with metadata | `TestPostgresMetadataAtomicRecoveryAndPublicIsolation` in the isolated PostgreSQL acceptance suite |
 
-The full META requirements are broader than this executable subset. META-002/010
-allocation policies, META-005 incident holds, META-006 inline protocol negotiation,
-provider attestations, archive/rotation, remediation and controller integration
-remain pending. See [METADATA_PROFILE](../docs/METADATA_PROFILE.md) for the coverage
+The full META requirements are broader than this executable subset. The SDN and
+remote-QCI increments below add policies, incident controls, adapter evidence and
+receipts. META-006 standards-based inline negotiation, actual SES translation,
+archive/rotation and physical controller provisioning remain pending. See
+[METADATA_PROFILE](../docs/METADATA_PROFILE.md) for the coverage
 table and [METADATA_RUNTIME](../docs/METADATA_RUNTIME.md) for runtime limits.
 # SDN allocation increment
 
@@ -100,3 +101,26 @@ uncertain sends after restart. PostgreSQL acceptance checks policy/history
 recovery and exclusion of private policy history from coarse metadata views.
 Full TFS cluster, real physical telemetry and 021/023 conformance are not tested
 by these fixtures; see [SDN_ALLOCATION](../docs/SDN_ALLOCATION.md).
+
+## Remote-QCI protection acceptance
+
+`make federation-demo` runs the three-segment synthetic service with different
+local pool names/revisions, explicit unresolved SES inputs and durable operator
+holds. `make operational-demo` also verifies pool-bound application confirmation,
+retirement receipts and their recovery on real PostgreSQL. All keys are synthetic.
+
+| Boundary | Tests |
+| --- | --- |
+| Pool isolation, incident/delivery race, no resurrection | `src/internal/storage/protection_test.go`, `src/internal/federation/state_test.go`, federation demo |
+| Provider signature/scope/expiry, non-consuming reconciliation | `src/internal/federation/state_test.go`, `src/internal/ingest/protection_test.go` |
+| API role isolation and signed protection history | `src/internal/fedapi/http_test.go`, `src/internal/metadata/protection_test.go` |
+| Pool notification downgrade and durable receipt outbox | `src/application/test_pool.py`, operational demo |
+| Link consumption per hop, protected mTLS, tamper and lost handoff/reply | `src/internal/qkdrelay/*_test.go`, including Windhof–JFK–Betzdorf |
+| Independent monotonic witness, live certificate policy, combined rollback | `src/internal/witness/*_test.go`, real PostgreSQL `TestWitnessRejectsCombinedDatabaseAndLocalCheckpointRollback` |
+| Optional PKCS#11 wrapping/rotation | `KMS_TEST_PKCS11_MODULE=<SoftHSM module> go test -race -tags pkcs11 ./src/internal/wrapping` |
+
+The normal build intentionally has no PKCS#11 implementation. The tagged CI
+acceptance uses a disposable SoftHSM token. Neither test establishes physical
+HSM protection, SES acceptance or independent ETSI conformance. See
+[REMOTE_QCI_UPGRADES](../docs/REMOTE_QCI_UPGRADES.md) for remaining software and
+deployment boundaries.

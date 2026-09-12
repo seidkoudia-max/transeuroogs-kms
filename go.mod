@@ -5,6 +5,7 @@ go 1.27.0
 require (
 	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/jackc/pgx/v5 v5.8.0
+	github.com/miekg/pkcs11 v1.1.1
 )
 
 require (

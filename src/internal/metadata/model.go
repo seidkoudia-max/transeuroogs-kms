@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/federation"
 )
 
 const Profile = "transeuroogs-metadata-v1"
@@ -59,6 +60,7 @@ func (c Config) Validate() error {
 }
 
 type KeyRef struct {
+	Pool        core.PoolRef     `json:"pool,omitzero"`
 	Namespace   string           `json:"namespace"`
 	ID          core.KeyID       `json:"key_id"`
 	Association core.Association `json:"association"`
@@ -67,40 +69,46 @@ type KeyRef struct {
 // Record is a projection: it cannot represent key bytes, fingerprints or tokens.
 // Generation is populated only by the local synthetic source projection.
 type Record struct {
-	Key              KeyRef     `json:"key"`
-	SourceClass      string     `json:"source_class"`
-	SourceEvidence   string     `json:"source_evidence"`
-	GenerationTime   *time.Time `json:"generation_time"`
-	CollectionIntent time.Time  `json:"collection_intent"`
-	LocalExpiresAt   time.Time  `json:"local_expires_at"`
-	Role             string     `json:"role"`
-	MasterState      core.State `json:"master_state,omitempty"`
-	SlaveState       core.State `json:"slave_state,omitempty"`
-	HoldingMaterial  bool       `json:"holding_material"`
-	Upstream         string     `json:"upstream,omitempty"`
-	NextPeer         string     `json:"next_peer,omitempty"`
-	TransferIntent   bool       `json:"transfer_intent"`
-	Ready            bool       `json:"ready"`
-	Voiding          bool       `json:"voiding"`
-	Uncertain        bool       `json:"uncertain"`
+	ProviderEvidence *federation.Evidence `json:"provider_evidence,omitempty"`
+	Key              KeyRef               `json:"key"`
+	SourceClass      string               `json:"source_class"`
+	SourceEvidence   string               `json:"source_evidence"`
+	GenerationTime   *time.Time           `json:"generation_time"`
+	CollectionIntent time.Time            `json:"collection_intent"`
+	LocalExpiresAt   time.Time            `json:"local_expires_at"`
+	Role             string               `json:"role"`
+	MasterState      core.State           `json:"master_state,omitempty"`
+	SlaveState       core.State           `json:"slave_state,omitempty"`
+	HoldingMaterial  bool                 `json:"holding_material"`
+	Upstream         string               `json:"upstream,omitempty"`
+	NextPeer         string               `json:"next_peer,omitempty"`
+	TransferIntent   bool                 `json:"transfer_intent"`
+	Ready            bool                 `json:"ready"`
+	Voiding          bool                 `json:"voiding"`
+	Uncertain        bool                 `json:"uncertain"`
 }
 
 func (r Record) valid() bool {
 	terminalUnknown := r.Uncertain && r.Voiding && !r.HoldingMaterial && r.SourceClass == "unknown" && r.LocalExpiresAt.Equal(r.CollectionIntent) && (r.Role == "relay" || (r.Role == "target" && r.SlaveState == core.Invalid))
-	if !name(r.Key.Namespace) || !r.Key.ID.Valid() || !r.Key.Association.Valid() || r.CollectionIntent.IsZero() || (!r.LocalExpiresAt.After(r.CollectionIntent) && !terminalUnknown) {
+	if (!r.Key.Pool.Empty() && !r.Key.Pool.Valid()) || !name(r.Key.Namespace) || !r.Key.ID.Valid() || !r.Key.Association.Valid() || r.CollectionIntent.IsZero() || (!r.LocalExpiresAt.After(r.CollectionIntent) && !terminalUnknown) {
 		return false
 	}
 	if (r.Upstream != "" && !name(r.Upstream)) || (r.NextPeer != "" && !name(r.NextPeer)) {
 		return false
 	}
-	if r.SourceClass == "synthetic" {
+	if r.ProviderEvidence != nil {
+		e := r.ProviderEvidence
+		if e.Profile != federation.EvidenceProfile || e.Key != r.Key.ID || e.Pool != r.Key.Pool || e.Association != r.Key.Association || e.JWS == "" || r.SourceEvidence != "verified_adapter_signature" || r.SourceClass != e.Origin || r.GenerationTime == nil || !r.GenerationTime.Equal(e.GeneratedAt) {
+			return false
+		}
+	} else if r.SourceClass == "synthetic" {
 		if r.SourceEvidence != "local_observation" && r.SourceEvidence != "unverified_claim" {
 			return false
 		}
 	} else if r.SourceClass != "unknown" || r.SourceEvidence != "unknown" {
 		return false
 	}
-	if r.GenerationTime != nil && (r.GenerationTime.IsZero() || r.GenerationTime.After(r.CollectionIntent) || r.SourceEvidence != "local_observation") {
+	if r.GenerationTime != nil && (r.GenerationTime.IsZero() || (r.GenerationTime.After(r.CollectionIntent) && r.ProviderEvidence == nil) || r.SourceEvidence != "local_observation" && r.ProviderEvidence == nil) {
 		return false
 	}
 	state := func(s core.State) bool {
@@ -164,14 +172,16 @@ func (a AttemptView) validFields() bool {
 }
 
 type Projection struct {
-	Controls []allocation.Commit
-	Keys     map[core.KeyID]Record
-	Attempts map[string]Attempt
+	Protection map[string]ProtectionRecord
+	Controls   []allocation.Commit
+	Keys       map[core.KeyID]Record
+	Attempts   map[string]Attempt
 }
 
 type Projector func([]byte) (Projection, error)
 
 type Event struct {
+	Protection         *ProtectionRecord  `json:"protection,omitempty"`
 	Profile            string             `json:"profile"`
 	ID                 core.KeyID         `json:"event_id"`
 	Domain             string             `json:"domain"`
@@ -189,6 +199,9 @@ type Event struct {
 
 func (e Event) onePayload() bool {
 	n := 0
+	if e.Protection != nil {
+		n++
+	}
 	if e.Record != nil {
 		n++
 	}

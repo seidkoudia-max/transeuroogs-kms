@@ -14,10 +14,12 @@ import (
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/durable"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/etsi020"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/federation"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/peering"
 )
 
 type record struct {
+	Pool         core.PoolRef `json:",omitzero"`
 	ID           core.KeyID
 	Pair         core.Association
 	Role         string
@@ -56,6 +58,7 @@ func (j ackJob) keyID() core.KeyID {
 }
 
 type state struct {
+	Protection *federation.State `json:",omitempty"`
 	Allocation *allocation.State `json:",omitempty"`
 	Version    int
 	Binding    string
@@ -88,6 +91,10 @@ func Open(cfg peering.Config, associations []core.Association, capacity int, tr 
 }
 
 func OpenStore(cfg peering.Config, associations []core.Association, capacity int, tr etsi020.Transport, store durable.Store, raw []byte, options ...*allocation.Setup) (*Engine, error) {
+	return OpenStoreControlled(cfg, associations, capacity, tr, store, raw, nil, options...)
+}
+
+func OpenStoreControlled(cfg peering.Config, associations []core.Association, capacity int, tr etsi020.Transport, store durable.Store, raw []byte, controls *federation.Config, options ...*allocation.Setup) (*Engine, error) {
 	defer clear(raw)
 	success := false
 	defer func() {
@@ -130,10 +137,19 @@ func OpenStore(cfg peering.Config, associations []core.Association, capacity int
 			return nil, errJournal
 		}
 	}
+	e.s.Protection, err = federation.Open(controls, e.s.Protection, raw != nil, associations)
+	if err != nil {
+		return nil, durable.ErrState
+	}
 	e.s.Allocation, err = allocation.Open(e.setup, e.s.Allocation, raw != nil)
 	if err != nil {
 		j.close()
 		return nil, errJournal
+	}
+	for _, r := range e.s.Keys {
+		if r == nil || r.Pool != e.s.Protection.Ref(r.Pair) {
+			return nil, durable.ErrState
+		}
 	}
 	if err = e.change(func(*state) error { return nil }); err != nil {
 		j.close()
@@ -244,6 +260,11 @@ func (e *Engine) StoreKey(k core.Key) error {
 		return core.ErrUnauthorized
 	}
 	return e.change(func(s *state) error {
+		ref := s.Protection.Ref(k.Association)
+		if (!k.Pool.Empty() && k.Pool != ref) || s.Protection.Gate(k.Association) != "" {
+			return core.ErrUnauthorized
+		}
+		k.Pool = ref
 		if _, ok := s.Keys[k.ID]; ok {
 			return core.ErrDuplicate
 		}
@@ -254,7 +275,11 @@ func (e *Engine) StoreKey(k core.Key) error {
 		if len(candidates) == 0 {
 			return core.ErrUnavailable
 		}
-		r := &record{ID: k.ID, Pair: k.Association, Role: "source", Source: k.Source, Material: slices.Clone(k.Material), Created: k.CreatedAt, Expires: k.ExpiresAt, Candidates: candidates}
+		r := &record{Pool: k.Pool, ID: k.ID, Pair: k.Association, Role: "source", Source: k.Source, Material: slices.Clone(k.Material), Created: k.CreatedAt, Expires: k.ExpiresAt, Candidates: candidates}
+		if e.cfg.QKDStateDir != "" {
+			expiry, _ := json.Marshal(k.ExpiresAt)
+			r.KeyExtension = etsi020.Extension{"E0_transeuroogs_expires_at": expiry}
+		}
 		r.Digest = digest(etsi020.Key{ID: k.ID, Value: base64.StdEncoding.EncodeToString(k.Material)}, k.Association, nil)
 		s.Keys[k.ID] = r
 		s.Order = append(s.Order, k.ID)
@@ -290,6 +315,12 @@ func (e *Engine) Accept(peer string, t etsi020.Transfer) error {
 		return core.ErrUnauthorized
 	}
 	return e.change(func(s *state) error {
+		if !etsi020.MatchesPool(t, s.Protection.Ref(a)) {
+			return core.ErrUnauthorized
+		}
+		if s.Protection.Gate(a) != "" {
+			return core.ErrUnavailable
+		}
 		newCount := 0
 		for _, k := range t.Keys {
 			if r, ok := s.Keys[k.ID]; ok {
@@ -319,7 +350,17 @@ func (e *Engine) Accept(peer string, t etsi020.Transfer) error {
 				continue
 			}
 			material, _ := base64.StdEncoding.DecodeString(k.Value)
-			r := &record{ID: k.ID, Pair: a, Sender: peer, Role: "relay", Material: material, Digest: digest(k, a, t.Optional), KeyExtension: cloneExtension(k.Extension), Optional: cloneExtension(t.Optional), Created: e.now(), Expires: e.now().Add(time.Hour)}
+			r := &record{Pool: s.Protection.Ref(a), ID: k.ID, Pair: a, Sender: peer, Role: "relay", Material: material, Digest: digest(k, a, t.Optional), KeyExtension: cloneExtension(k.Extension), Optional: cloneExtension(t.Optional), Created: e.now(), Expires: e.now().Add(time.Hour)}
+			if value := k.Extension["E0_transeuroogs_expires_at"]; value != nil {
+				var expiry time.Time
+				if json.Unmarshal(value, &expiry) != nil || !e.now().Before(expiry) {
+					clear(material)
+					return core.ErrUnavailable
+				}
+				if expiry.Before(r.Expires) {
+					r.Expires = expiry
+				}
+			}
 			if e.local(a.Slave) {
 				r.Role = "target"
 				r.Ready = true
@@ -478,7 +519,7 @@ func (e *Engine) Void(peer string, v etsi020.Void) error {
 			r := s.Keys[id]
 			if r == nil {
 				now := e.now()
-				r = &record{ID: id, Pair: a, Sender: peer, Unknown: true, Created: now, Expires: now}
+				r = &record{Pool: s.Protection.Ref(a), ID: id, Pair: a, Sender: peer, Unknown: true, Created: now, Expires: now}
 				if e.local(a.Slave) {
 					r.Role = "target"
 				} else {
@@ -518,6 +559,7 @@ func (e *Engine) ReserveKeys(a core.Association, n int) (out core.Reservation, e
 		if len(out.IDs) != n {
 			return core.ErrUnavailable
 		}
+		out.Pool = s.Protection.Ref(a)
 		out.Token = core.NewID()
 		for _, id := range out.IDs {
 			s.Keys[id].Token = out.Token
@@ -648,7 +690,7 @@ func (e *Engine) Metadata(id core.KeyID) (core.Metadata, error) {
 	if r == nil {
 		return core.Metadata{}, core.ErrUnavailable
 	}
-	m := core.Metadata{ID: id, Association: r.Pair, Source: r.Role, CreatedAt: r.Created, ExpiresAt: r.Expires, MasterState: core.Reserved, SlaveState: core.Reserved}
+	m := core.Metadata{Pool: r.Pool, ID: id, Association: r.Pair, Source: r.Role, CreatedAt: r.Created, ExpiresAt: r.Expires, MasterState: core.Reserved, SlaveState: core.Reserved}
 	st := core.Reserved
 	if usable(r, e.now()) {
 		st = core.Available
@@ -823,7 +865,7 @@ func (e *Engine) sendRecord(ctx context.Context, id core.KeyID) {
 	// this peer even if the process cannot tell whether any bytes were sent.
 	err := e.change(func(s *state) error {
 		current := s.Keys[id]
-		if current.Voiding || current.Ready || !e.now().Before(current.Expires) {
+		if current.Voiding || current.Ready || !e.now().Before(current.Expires) || s.Protection.Check(current.Pair, current.ID, e.now()) != "" {
 			return core.ErrUnavailable
 		}
 		// Probe runs outside the lock. A route command may have removed that
@@ -840,6 +882,6 @@ func (e *Engine) sendRecord(ctx context.Context, id core.KeyID) {
 		return
 	}
 	p := e.cfg.Peers[peer]
-	t := etsi020.Transfer{Keys: []etsi020.Key{{ID: id, Value: base64.StdEncoding.EncodeToString(r.Material), Extension: r.KeyExtension}}, Initiator: r.Pair.Master, Targets: []string{r.Pair.Slave}, Callback: e.cfg.PublicURL + peering.Base(p.Mode) + "/ack", Optional: r.Optional}
+	t := etsi020.Transfer{Mandatory: etsi020.PoolMandatory(r.Pool), Keys: []etsi020.Key{{ID: id, Value: base64.StdEncoding.EncodeToString(r.Material), Extension: r.KeyExtension}}, Initiator: r.Pair.Master, Targets: []string{r.Pair.Slave}, Callback: e.cfg.PublicURL + peering.Base(p.Mode) + "/ack", Optional: r.Optional}
 	_ = e.transport.Send(ctx, peer, t)
 }
