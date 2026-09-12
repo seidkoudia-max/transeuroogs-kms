@@ -21,6 +21,9 @@ func ProjectMetadata(c upstream.Config, a core.Association) metadata.Projector {
 			}
 		}()
 		p := metadata.Projection{Keys: map[core.KeyID]metadata.Record{}, Attempts: map[string]metadata.Attempt{}}
+		if s.Allocation != nil {
+			p.Controls = s.Allocation.Commits
+		}
 		uncertain := map[core.KeyID]bool{}
 		for token, q := range s.Requests {
 			if q == nil {

@@ -18,6 +18,9 @@ func ProjectMetadata(raw []byte) (metadata.Projection, error) {
 		}
 	}()
 	p := metadata.Projection{Keys: map[core.KeyID]metadata.Record{}}
+	if s.Allocation != nil {
+		p.Controls = s.Allocation.Commits
+	}
 	for id, k := range s.Keys {
 		m := k.Meta
 		r := metadata.Record{Key: metadata.KeyRef{ID: id, Association: m.Association}, SourceClass: "unknown", SourceEvidence: "unknown", CollectionIntent: m.CreatedAt, LocalExpiresAt: m.ExpiresAt, Role: "local", MasterState: m.MasterState, SlaveState: m.SlaveState, HoldingMaterial: len(k.MasterMaterial) > 0 || len(k.SlaveMaterial) > 0}

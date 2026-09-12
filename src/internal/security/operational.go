@@ -180,6 +180,12 @@ func (r *response) Write(b []byte) (int, error) {
 }
 func operation(r *http.Request) string {
 	// Never audit a caller-provided path/query, which may contain key material.
+	if strings.HasPrefix(r.URL.Path, "/management/v1/") {
+		return "allocation_management"
+	}
+	if strings.HasPrefix(r.URL.Path, "/restconf/") {
+		return "sdn_agent"
+	}
 	if strings.HasPrefix(r.URL.Path, "/metadata/v1/keys/") {
 		return "metadata_key"
 	}

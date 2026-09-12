@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/allocation"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/config"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/durable"
@@ -31,6 +32,7 @@ import (
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/peering"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/postgres"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/relay"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/sdnapi"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/security"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/storage"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/synthetic"
@@ -70,6 +72,10 @@ func run() error {
 	var managed durable.Store
 	var history *metadata.Store
 	var recovered []byte
+	var policy *allocation.Setup
+	if c.SDN != nil {
+		policy = &allocation.Setup{Config: *c.SDN, Issuer: c.Metadata.Issuer, ClockUncertaintyMS: c.Metadata.ClockUncertaintyMS}
+	}
 	if *migrate {
 		if c.Operational == nil {
 			return fmt.Errorf("operational configuration required")
@@ -133,7 +139,7 @@ func run() error {
 			Local      []string
 		}{c.KMEID, c.Associations, c.Identities, c.LocalSAEs})
 		hash := sha256.Sum256(binding)
-		persistent, e := storage.OpenPersistent(c.Capacity, hex.EncodeToString(hash[:]), managed, recovered)
+		persistent, e := storage.OpenPersistent(c.Capacity, hex.EncodeToString(hash[:]), managed, recovered, policy)
 		if e != nil {
 			return e
 		}
@@ -169,7 +175,7 @@ func run() error {
 		}
 		defer client.Close()
 		if managed != nil {
-			ingestion, e = ingest.OpenStore(*u, c.Associations[0], c.Capacity, client, managed, recovered)
+			ingestion, e = ingest.OpenStore(*u, c.Associations[0], c.Capacity, client, managed, recovered, policy)
 		} else {
 			ingestion, e = ingest.Open(*u, c.Associations[0], c.Capacity, client)
 		}
@@ -206,7 +212,7 @@ func run() error {
 		}
 		defer client.Close()
 		if managed != nil {
-			engine, e = relay.OpenStore(*c.InterKMS, c.Associations, c.Capacity, client, managed, recovered)
+			engine, e = relay.OpenStore(*c.InterKMS, c.Associations, c.Capacity, client, managed, recovered, policy)
 		} else {
 			engine, e = relay.Open(*c.InterKMS, c.Associations, c.Capacity, client)
 		}
@@ -256,8 +262,25 @@ func run() error {
 		mux.Handle("/metadata/", metapi.New(history, apps, c.Associations, c.Metadata.Readers))
 		handler = mux
 	}
+	if c.SDN != nil {
+		manager, ok := repo.(allocation.Manager)
+		if !ok {
+			return fmt.Errorf("repository does not support management")
+		}
+		agent := sdnapi.New(manager, *c.SDN, c.Identities)
+		mux := http.NewServeMux()
+		mux.Handle("/", handler)
+		mux.Handle("/management/", agent)
+		mux.Handle("/restconf/", agent)
+		handler = mux
+	}
 	if c.Operational != nil {
 		ids := []string{}
+		if c.SDN != nil {
+			for id := range c.SDN.Principals {
+				ids = append(ids, id)
+			}
+		}
 		for id := range c.Identities {
 			ids = append(ids, id)
 		}

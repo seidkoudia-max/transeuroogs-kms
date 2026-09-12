@@ -1,0 +1,17 @@
+# Apply only to an isolated TFS namespace after replacing the image with a built
+# and verified digest. The Secret is created locally from synthetic lab files.
+spec:
+  template:
+    spec:
+      containers:
+        - name: server
+          image: REPLACE_WITH_BUILT_DEVICE_IMAGE_AT_SHA256_DIGEST
+          volumeMounts:
+            - name: kms-management-mtls
+              mountPath: /run/transeuroogs/mtls
+              readOnly: true
+      volumes:
+        - name: kms-management-mtls
+          secret:
+            secretName: kms-management-mtls
+            defaultMode: 256

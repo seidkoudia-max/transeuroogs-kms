@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/allocation"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/durable"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/etsi020"
@@ -55,14 +56,16 @@ func (j ackJob) keyID() core.KeyID {
 }
 
 type state struct {
-	Version int
-	Binding string
-	Keys    map[core.KeyID]*record
-	Order   []core.KeyID
-	Cursor  map[string]int
-	Acks    map[core.KeyID]ackJob
+	Allocation *allocation.State `json:",omitempty"`
+	Version    int
+	Binding    string
+	Keys       map[core.KeyID]*record
+	Order      []core.KeyID
+	Cursor     map[string]int
+	Acks       map[core.KeyID]ackJob
 }
 type Engine struct {
+	setup     *allocation.Setup
 	mu        sync.Mutex
 	step      sync.Mutex
 	cfg       peering.Config
@@ -84,7 +87,7 @@ func Open(cfg peering.Config, associations []core.Association, capacity int, tr 
 	return OpenStore(cfg, associations, capacity, tr, j.Store, raw)
 }
 
-func OpenStore(cfg peering.Config, associations []core.Association, capacity int, tr etsi020.Transport, store durable.Store, raw []byte) (*Engine, error) {
+func OpenStore(cfg peering.Config, associations []core.Association, capacity int, tr etsi020.Transport, store durable.Store, raw []byte, options ...*allocation.Setup) (*Engine, error) {
 	defer clear(raw)
 	success := false
 	defer func() {
@@ -92,7 +95,7 @@ func OpenStore(cfg peering.Config, associations []core.Association, capacity int
 			store.Close()
 		}
 	}()
-	if cfg.Validate() != nil || capacity < 1 || capacity > 100000 || tr == nil || store == nil || !durable.PlainSnapshot(raw) {
+	if cfg.Validate() != nil || capacity < 1 || capacity > 100000 || tr == nil || store == nil || !durable.PlainSnapshot(raw) || len(options) > 1 {
 		return nil, core.ErrInvalid
 	}
 	// Own configuration and extension buffers; callers cannot change active policy.
@@ -107,6 +110,10 @@ func OpenStore(cfg peering.Config, associations []core.Association, capacity int
 	hash := sha256.Sum256(bindingBytes)
 	binding := hex.EncodeToString(hash[:])
 	e := &Engine{cfg: owned, capacity: capacity, transport: tr, allowed: map[core.Association]bool{}, now: time.Now, retry: time.Second}
+	e.setup = allocation.Select(options)
+	if e.setup != nil {
+		e.setup.Routes = allocation.Clone(cfg.Routes)
+	}
 	for _, a := range associations {
 		if !a.Valid() {
 			return nil, core.ErrInvalid
@@ -122,6 +129,11 @@ func OpenStore(cfg peering.Config, associations []core.Association, capacity int
 			j.close()
 			return nil, errJournal
 		}
+	}
+	e.s.Allocation, err = allocation.Open(e.setup, e.s.Allocation, raw != nil)
+	if err != nil {
+		j.close()
+		return nil, errJournal
 	}
 	if err = e.change(func(*state) error { return nil }); err != nil {
 		j.close()
@@ -186,6 +198,9 @@ func (e *Engine) change(fn func(*state) error) error {
 func (e *Engine) local(sae string) bool { return slices.Contains(e.cfg.LocalSAEs, sae) }
 func (e *Engine) candidates(s *state, target, sender string) []string {
 	route := e.cfg.Routes[target]
+	if s.Allocation != nil {
+		route = s.Allocation.Routes[target]
+	}
 	if len(route) == 0 {
 		return nil
 	}
@@ -462,7 +477,8 @@ func (e *Engine) Void(peer string, v etsi020.Void) error {
 		for _, id := range ids {
 			r := s.Keys[id]
 			if r == nil {
-				r = &record{ID: id, Pair: a, Sender: peer, Unknown: true, Created: e.now(), Expires: e.now()}
+				now := e.now()
+				r = &record{ID: id, Pair: a, Sender: peer, Unknown: true, Created: now, Expires: now}
 				if e.local(a.Slave) {
 					r.Role = "target"
 				} else {
@@ -489,9 +505,10 @@ func (e *Engine) ReserveKeys(a core.Association, n int) (out core.Reservation, e
 		if !e.allowed[a] || !e.local(a.Master) {
 			return core.ErrUnauthorized
 		}
+		now := e.now()
 		for _, id := range s.Order {
 			r := s.Keys[id]
-			if r.Pair == a && r.Role == "source" && r.Token == "" && usable(r, e.now()) {
+			if r.Pair == a && r.Role == "source" && r.Token == "" && usable(r, now) && e.policy(s, r, n, now) == "" {
 				out.IDs = append(out.IDs, id)
 				if len(out.IDs) == n {
 					break
@@ -517,6 +534,7 @@ func (e *Engine) ConsumeReservation(a core.Association, token core.KeyID) (out [
 		return nil, core.ErrInvalid
 	}
 	err = e.change(func(s *state) error {
+		now := e.now()
 		for _, id := range s.Order {
 			r := s.Keys[id]
 			if r.Token != token {
@@ -525,7 +543,7 @@ func (e *Engine) ConsumeReservation(a core.Association, token core.KeyID) (out [
 			if r.Pair != a || r.Role != "source" {
 				return core.ErrUnauthorized
 			}
-			if !usable(r, e.now()) {
+			if !usable(r, now) || e.policy(s, r, len(out)+1, now) != "" {
 				return core.ErrUnavailable
 			}
 			out = append(out, core.Delivery{ID: id, Material: slices.Clone(r.Material)})
@@ -565,6 +583,7 @@ func (e *Engine) ConsumePeerKeys(a core.Association, ids []core.KeyID) (out []co
 		if !e.allowed[a] || !e.local(a.Slave) {
 			return core.ErrUnauthorized
 		}
+		now := e.now()
 		for _, id := range ids {
 			r := s.Keys[id]
 			if r == nil {
@@ -573,7 +592,7 @@ func (e *Engine) ConsumePeerKeys(a core.Association, ids []core.KeyID) (out []co
 			if r.Pair != a || r.Role != "target" {
 				return core.ErrUnauthorized
 			}
-			if !usable(r, e.now()) {
+			if !usable(r, now) || e.policy(s, r, len(ids), now) != "" {
 				return core.ErrUnavailable
 			}
 		}
@@ -613,7 +632,7 @@ func (e *Engine) Inventory(a core.Association) core.Inventory {
 		return out
 	}
 	for _, r := range e.s.Keys {
-		if r.Pair == a && r.Role == "source" && r.Token == "" && usable(r, e.now()) {
+		if r.Pair == a && r.Role == "source" && r.Token == "" && usable(r, e.now()) && e.policy(&e.s, r, 1, e.now()) == "" {
 			out.Available++
 		}
 	}
@@ -805,6 +824,11 @@ func (e *Engine) sendRecord(ctx context.Context, id core.KeyID) {
 	err := e.change(func(s *state) error {
 		current := s.Keys[id]
 		if current.Voiding || current.Ready || !e.now().Before(current.Expires) {
+			return core.ErrUnavailable
+		}
+		// Probe runs outside the lock. A route command may have removed that
+		// candidate meanwhile. A previously committed intent must never migrate.
+		if (!current.Sent && !slices.Contains(current.Candidates, peer)) || (current.Sent && current.Next != peer) {
 			return core.ErrUnavailable
 		}
 		current.Next = peer

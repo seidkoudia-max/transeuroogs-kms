@@ -3,8 +3,9 @@
 Status: M7a runtime and the evidence/incident-query portion of M7b implemented,
 2026-09-12. This is a project profile, not a new ETSI standard or evidence of
 standards conformance. [METADATA_RUNTIME](METADATA_RUNTIME.md) specifies the
-executable subset. Policy-based allocation, provider evidence ingestion,
-incident holds and SDN/controller integration remain pending.
+executable subset. [SDN_ALLOCATION](SDN_ALLOCATION.md) adds policy-based allocation
+and a TeraFlow driver/reconciler. Provider evidence ingestion, incident holds,
+full controller deployment and 021/023 integration remain pending.
 
 The research proposal [In QKD, Key Metadata is Key, v1](https://arxiv.org/abs/2608.11502)
 informs this design through its Section IV and appendix. Its sample envelopes
@@ -31,8 +32,8 @@ engineering increments, not new calendar milestones or replacements for M5b.
 | Increment | Deliverable | Acceptance |
 | --- | --- | --- |
 | M7a | Versioned local-observation model; key/event/issuer references; explicit unknowns; durable local event history | Implemented; model, persistence, recovery, race and access-control tests |
-| M7b | Verified evidence exchange, initial policies, incident tracing and controlled disclosure | Signed offline exchange and read-only tracing implemented; allocation policies and remediation pending |
-| M7c | Metadata-only management API and selected SDN/controller adapter | Pending; the incident API does not implement controller orchestration |
+| M7b | Verified evidence exchange, initial policies, incident tracing and controlled disclosure | Signed offline exchange, tracing and local allocation policies implemented; provider attestation and remediation pending |
+| M7c | Metadata-only management API and selected SDN/controller adapter | Scoped management, bounded 015 agent and TeraFlow driver/reconciler locally tested; full cluster and 021/023 profile acceptance pending |
 
 Synthetic M7a/M7b can proceed before deployment. Real claims and cross-domain
 trust require the [SES answers](SES_METADATA_CHECKLIST.md). M4 operational
@@ -118,9 +119,10 @@ key bytes, so ordinary consumers must not enumerate unrelated records.
 
 ## Initial policy and failure scope
 
-This section is the next policy increment; these allocation checks are not yet
-implemented. The current runtime records and queries observations without
-changing key eligibility or accepting caller-supplied policy requirements.
+This section describes the policy objective; the implemented subset is specified
+in [SDN_ALLOCATION](SDN_ALLOCATION.md). Rules are installed by a separately
+authorised controller and enforced locally; applications cannot alter requirements
+in an 014 request. Incident holds and actual provider attestation remain pending.
 
 Start with maximum generation age, allowed source/issuer, and configured local
 entitlement to scarce satellite material. Evaluate policy atomically with
@@ -142,7 +144,7 @@ mandatory requests for capabilities outside the implemented profile.
 | ID | Required check | Current coverage |
 | --- | --- | --- |
 | META-001 | Preserve KID/pair across LU/GR; reject namespace/pair conflicts and conflicting event replay. | Implemented for project exports; real provider namespace agreement pending |
-| META-002 | Old generation with recent ingestion fails freshness; missing time, uncertainty or component coverage fails a mandatory freshness policy. | Pending allocation-policy increment |
+| META-002 | Old generation with recent ingestion fails freshness; missing time, uncertainty or component coverage fails a mandatory freshness policy. | Local age/freshness checks and unknown-provider rejection implemented; imported component evidence pending |
 | META-003 | Reject forged/altered evidence, wrong issuer authority, unsupported algorithm/version and invalid trust status. | Implemented ES256 allowlist and offline verification; partner trust profile pending |
 | META-004 | Crash at intent, upstream response, event commit and delivery; no key leaves without committed history and no uncertain key returns to inventory. | Atomic snapshot and ambiguous-commit tests; two-site restart demo; broader filesystem/power-loss campaign pending |
 | META-005 | Concurrent reservations, consumption and incident holds preserve batch atomicity and per-recipient single delivery. | Delivery race and ambiguous commit covered; incident holds pending |
@@ -150,7 +152,7 @@ mandatory requests for capabilities outside the implemented profile.
 | META-007 | Trace custody-window exposure to downstream keys and application commitments; distinguish affected, possible and unknown. | Implemented for unchanged namespaced keys and KMS delivery commitments; business-use receipts pending |
 | META-008 | Under partition, retention gaps or query limits, report partial coverage instead of global clearance. | Missing pages, unknown clocks/provider and scope gaps covered; archive service pending |
 | META-009 | Deny cross-association reads/actions and verify metadata/logs contain no material. | Read-only API role/scope tests and projection redaction tests; no remediation API |
-| META-010 | A non-entitled caller cannot consume locally known satellite inventory; an entitled caller can. | Pending source/entitlement policy increment |
+| META-010 | A non-entitled caller cannot consume locally known satellite inventory; an entitled caller can. | Policy evaluator and association entitlement tested; no runtime verified satellite provenance yet |
 | META-011 | Enforce storage/query/evidence bounds and fail closed on required-event persistence failure. | Implemented event/snapshot/export/query bounds; retention/archive and signing rotation pending |
 | META-012 | Restart national KMSs and retrieve at the slave while the master is offline, without a new KMS control channel. | `make metadata-demo` |
 

@@ -8,6 +8,7 @@ import (
 	"os"
 	"slices"
 
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/allocation"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/metadata"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/peering"
@@ -27,6 +28,7 @@ type Config struct {
 	Eagle        *upstream.Config   `json:"eagle,omitempty"`
 	Operational  *Operational       `json:"operational,omitempty"`
 	Metadata     *metadata.Config   `json:"metadata,omitempty"`
+	SDN          *allocation.Config `json:"sdn,omitempty"`
 }
 
 type Operational struct {
@@ -55,6 +57,32 @@ func Load(path string) (Config, error) {
 }
 
 func (c Config) Validate() error {
+	if c.SDN != nil {
+		if c.Metadata == nil || c.SDN.Validate(c.Associations) != nil {
+			return errors.New("SDN requires durable metadata and valid management configuration")
+		}
+		for identity := range c.SDN.Principals {
+			if _, exists := c.Identities[identity]; exists {
+				return errors.New("controller must have a separate identity")
+			}
+			if _, exists := c.Metadata.Readers[identity]; exists {
+				return errors.New("controller and investigator identities must be separate")
+			}
+			if c.Eagle != nil && identity == c.Eagle.ServerIdentity {
+				return errors.New("controller cannot be the upstream provider")
+			}
+			if c.InterKMS != nil {
+				if identity == c.InterKMS.Identity {
+					return errors.New("controller cannot be the KME")
+				}
+				for _, peer := range c.InterKMS.Peers {
+					if identity == peer.Identity {
+						return errors.New("controller cannot be a peer KME")
+					}
+				}
+			}
+		}
+	}
 	if c.Metadata != nil {
 		if c.Metadata.Validate() != nil || (c.Operational == nil && c.Eagle == nil && c.InterKMS == nil && c.Metadata.StateDir == "") {
 			return errors.New("invalid metadata configuration")

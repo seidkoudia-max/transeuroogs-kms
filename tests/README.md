@@ -83,3 +83,20 @@ allocation policies, META-005 incident holds, META-006 inline protocol negotiati
 provider attestations, archive/rotation, remediation and controller integration
 remain pending. See [METADATA_PROFILE](../docs/METADATA_PROFILE.md) for the coverage
 table and [METADATA_RUNTIME](../docs/METADATA_RUNTIME.md) for runtime limits.
+# SDN allocation increment
+
+`make sdn-demo` exercises the pinned TeraFlow v7 Device driver contract against
+a separate KMS process over verified mTLS. It checks scoped inventory, policy
+reconciliation with a durable outbox, lost command replies, concurrent replay,
+restart, controller/key-plane identity separation, signed command events and
+continued delivery under local policy without a controller connection.
+`tests/validate_sdn_yang.py` validates the captured `.local/sdn-node.json` against
+the published 015 V2.1.1 modules, with negative schema cases.
+
+Go allocation tests cover reserved-batch rechecks, unknown generation/evidence,
+provider responses aging beyond local TTL, atomic command persistence failure,
+revocation scopes, stale revisions, route changes during probes and pinned
+uncertain sends after restart. PostgreSQL acceptance checks policy/history
+recovery and exclusion of private policy history from coarse metadata views.
+Full TFS cluster, real physical telemetry and 021/023 conformance are not tested
+by these fixtures; see [SDN_ALLOCATION](../docs/SDN_ALLOCATION.md).

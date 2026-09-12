@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/allocation"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
 )
 
@@ -20,6 +21,8 @@ type reservation struct {
 }
 
 type Memory struct {
+	allocation   *allocation.State
+	setup        *allocation.Setup
 	mu           sync.Mutex
 	capacity     int
 	now          func() time.Time
@@ -88,7 +91,7 @@ func (m *Memory) ReserveKeys(a core.Association, count int) (core.Reservation, e
 	for _, id := range m.order {
 		e := m.keys[id]
 		expire(e, now)
-		if e.meta.Association == a && e.meta.MasterState == core.Available {
+		if e.meta.Association == a && e.meta.MasterState == core.Available && m.policy(e, count, now) == "" {
 			ids = append(ids, id)
 			if len(ids) == count {
 				break
@@ -129,6 +132,9 @@ func (m *Memory) ConsumeReservation(a core.Association, token core.KeyID) ([]cor
 		if e.meta.MasterState != core.Reserved {
 			return nil, core.ErrUnavailable
 		}
+		if m.policy(e, len(r.ids), now) != "" {
+			return nil, core.ErrUnavailable
+		}
 	}
 	out := make([]core.Delivery, 0, len(r.ids))
 	for _, id := range r.ids {
@@ -167,6 +173,9 @@ func (m *Memory) ConsumePeerKeys(a core.Association, ids []core.KeyID) ([]core.D
 		}
 		expire(e, now)
 		if e.meta.SlaveState != core.Available {
+			return nil, core.ErrUnavailable
+		}
+		if m.policy(e, len(ids), now) != "" {
 			return nil, core.ErrUnavailable
 		}
 	}
@@ -220,9 +229,13 @@ func (m *Memory) Inventory(a core.Association) core.Inventory {
 	now := m.now()
 	for _, e := range m.keys {
 		expire(e, now)
-		if e.meta.Association == a && e.meta.MasterState == core.Available {
+		if e.meta.Association == a && e.meta.MasterState == core.Available && m.policy(e, 1, now) == "" {
 			result.Available++
 		}
 	}
 	return result
+}
+
+func (m *Memory) policy(e *entry, n int, now time.Time) string {
+	return m.allocation.Check(e.meta.Association, n, allocation.LocalFacts(e.meta.Source, e.meta.CreatedAt, e.meta.ExpiresAt, m.setup), now)
 }

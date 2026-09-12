@@ -109,7 +109,7 @@ func VerifyPages(pages []SignedPage, trust []Trust, audience string) ([]Event, [
 		last := p.After
 		for _, proof := range p.Events {
 			var e Event
-			if verify(proof.JWS, i.public, i.trust.CredentialID, &e, 32768) != nil || !reflect.DeepEqual(e, proof.Event) || e.Profile != Profile || e.Issuer != p.Issuer || e.Domain != p.Domain || !e.ID.Valid() || e.Sequence <= last || e.Sequence > p.Next || e.RecordedAt.Before(p.StartedAt) || e.RecordedAt.After(p.ObservedAt) || e.RecordedAt.Before(i.trust.ValidFrom) || !e.RecordedAt.Before(i.trust.ValidUntil) || (e.Record == nil) == (e.Attempt == nil) || len(e.Actions) == 0 {
+			if verify(proof.JWS, i.public, i.trust.CredentialID, &e, 32768) != nil || !reflect.DeepEqual(e, proof.Event) || e.Profile != Profile || e.Issuer != p.Issuer || e.Domain != p.Domain || !e.ID.Valid() || e.Sequence <= last || e.Sequence > p.Next || e.RecordedAt.Before(p.StartedAt) || e.RecordedAt.After(p.ObservedAt) || e.RecordedAt.Before(i.trust.ValidFrom) || !e.RecordedAt.Before(i.trust.ValidUntil) || !e.onePayload() || len(e.Actions) == 0 {
 				return nil, nil, ErrEvidence
 			}
 			if e.ClockUncertaintyMS != nil && (*e.ClockUncertaintyMS < 0 || *e.ClockUncertaintyMS > 60000) {
@@ -122,6 +122,9 @@ func VerifyPages(pages []SignedPage, trust []Trust, audience string) ([]Event, [
 				return nil, nil, ErrEvidence
 			}
 			if e.Attempt != nil && (!e.Attempt.valid() || e.PreviousKeyEvent != "" || !slices.Equal(e.Actions, []string{"upstream_" + e.Attempt.Status})) {
+				return nil, nil, ErrEvidence
+			}
+			if e.Control != nil && (!e.Control.Valid() || e.Control.AppliedAt.After(e.RecordedAt) || e.PreviousKeyEvent != "" || !slices.Equal(e.Actions, []string{"allocation_changed"})) {
 				return nil, nil, ErrEvidence
 			}
 			ref := EventRef{e.Issuer, e.ID}

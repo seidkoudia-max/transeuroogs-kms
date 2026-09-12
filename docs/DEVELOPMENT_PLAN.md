@@ -14,7 +14,7 @@ M0–M7 are engineering stages, not project calendar months or WP4 milestone IDs
 | M5a | Upstream EAGLE-1 014 client, durable paired ingestion and two-site service emulator with delayed offline relay | Implemented segmented synthetic profile; partner validation pending |
 | M5b | SES deployment profile and external interoperability validation | Needs profile and partner test access; gateway authorisation is confirmed |
 | M6 | LU/GR demonstration, then DE and IE deployments of the same KMS/adapter | Planned |
-| M7 | Metadata foundation, evidence/policy and incident tracing, then metadata-only SDN-facing management | M7a and read-only evidence/incident runtime implemented; source/freshness/entitlement policy and M7c pending; see [METADATA_RUNTIME](METADATA_RUNTIME.md) |
+| M7 | Metadata foundation, evidence/policy and incident tracing, then metadata-only SDN-facing management | Local policies, signed command history, bounded 015 agent and TeraFlow driver/reconciler implemented and locally tested; full controller deployment, provider attestation and 021/023 integration pending; see [SDN_ALLOCATION](SDN_ALLOCATION.md) |
 
 M2 acceptance: `make check` and `make demo`; the demo must verify 1,000 matching
 keys, unique IDs, pool depletion, mTLS and rejection of a repeat slave delivery.
@@ -89,7 +89,15 @@ disclosure, evidence tampering and incident-to-delivery tracing. Relay tests cov
 distinct-path isolation; real PostgreSQL tests cover history recovery and public
 metadata separation. See [METADATA_RUNTIME](METADATA_RUNTIME.md) for limits.
 
-M7 remains partial: allocation policies, provider attestation ingestion, signing
-rotation/archive, application usage receipts, incident holds/remediation and SDN
-integration require further increments. No SES agreement, production acceptance
-or paper-level interoperability is established by these synthetic tests.
+M7 now adds locally enforced source, issuer, evidence, freshness, entitlement and
+batch policies; scoped metadata-only management; signed command events; safe
+route changes; and an opt-in TeraFlow v7 driver with durable policy reconciliation.
+`make sdn-demo` checks the actual driver contract against a real local KMS over
+mTLS. Captured 015 data passes validation against the published V2.1.1 YANG model.
+The full controller cluster is not deployed: local disk capacity is insufficient.
+
+M7 remains partial: provider attestation ingestion, signing rotation/archive,
+application usage receipts, incident holds/remediation, bandwidth/priority
+scheduling, controller service provisioning and agreed 021/023 draft integration
+require further increments. No SES agreement, production acceptance, independent
+conformance or paper-level interoperability is established by these tests.

@@ -2,14 +2,42 @@ package config
 
 import (
 	"encoding/json"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/allocation"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/metadata"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/peering"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/testallocation"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/upstream"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+func TestControllerRequiresIndependentScopedIdentityAndDurableMetadata(t *testing.T) {
+	a := core.Association{Master: "A", Slave: "B"}
+	policy := testallocation.Setup(a)
+	base := Config{KMEID: "test", Capacity: 10, Identities: map[string]string{"urn:test:app-a": "A", "urn:test:app-b": "B"}, Associations: []core.Association{a}, SDN: &policy.Config,
+		Metadata: &metadata.Config{Domain: "test", Issuer: "urn:test:kms", Namespace: "test", CredentialID: "test", SigningKeyFile: "unused", StateDir: "state", MaxEvents: 100, Readers: map[string][]core.Association{"urn:test:investigator": {a}}}}
+	if err := base.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	for _, mutate := range []func(*Config){
+		func(c *Config) { c.Metadata = nil },
+		func(c *Config) { c.Metadata.StateDir = "" },
+		func(c *Config) { c.SDN.Principals["urn:test:app-a"] = c.SDN.Principals[testallocation.Actor] },
+		func(c *Config) { c.SDN.Principals["urn:test:investigator"] = c.SDN.Principals[testallocation.Actor] },
+		func(c *Config) { c.SDN.Apps[0].Association.Slave = "OTHER" },
+		func(c *Config) {
+			c.SDN.Principals[testallocation.Actor] = allocation.Principal{Pairs: []core.Association{a}, Routes: true}
+		},
+	} {
+		c := allocation.Clone(base)
+		mutate(&c)
+		if c.Validate() == nil {
+			t.Fatal("invalid controller configuration accepted")
+		}
+	}
+}
 
 func TestConfigurationValidation(t *testing.T) {
 	valid := `{"kme_id":"LU-KMS","capacity":10,"identities":{"urn:a":"A","urn:b":"B"},"associations":[{"master":"A","slave":"B"}]}`

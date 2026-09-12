@@ -262,9 +262,11 @@ evidence. No automatic retention, report pagination or archive service exists.
 The operational profile audits investigator requests through its existing durable
 guard. The basic journal lab profile has no separate durable inquiry audit. Neither
 profile implements investigator-driven holds, remediation, application notification
-or remote revocation. Freshness/source/issuer entitlement policies, provider metadata
-ingestion, inline 014/020 metadata negotiation, business session receipts, signing
-rotation and SDN management remain subsequent increments.
+or remote revocation. [SDN_ALLOCATION](SDN_ALLOCATION.md) adds local
+freshness/source/issuer/entitlement policy checks, signed command history and
+metadata-only management with a TeraFlow driver. Provider attestation ingestion,
+inline 014/020 metadata negotiation, business session receipts, signing rotation,
+full controller deployment and 021/023 integration remain subsequent increments.
 
 Run `make check`, `make demo`, `make relay-demo`, `make segmented-demo`,
 `make metadata-demo` and the operational acceptance suite. The metadata demo uses
