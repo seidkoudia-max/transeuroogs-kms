@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/allocation"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/durable"
 )
@@ -83,6 +84,7 @@ func Open(c Config, signing *Signing, inner durable.Store, raw []byte, project P
 		return nil, nil, durable.ErrState
 	}
 	keys := map[core.KeyID]Record{}
+	controls := []allocation.Commit{}
 	attempts := map[string]AttemptView{}
 	seen := map[core.KeyID]bool{}
 	previous := ""
@@ -96,7 +98,11 @@ func Open(c Config, signing *Signing, inner durable.Store, raw []byte, project P
 		seen[event.ID] = true
 		when = event.RecordedAt
 		previous = checksum([]byte(proof.JWS))
-		if event.Record != nil && event.Attempt == nil {
+		if !event.onePayload() {
+			clear(clean)
+			return nil, nil, durable.ErrState
+		}
+		if event.Record != nil {
 			r := *event.Record
 			before, exists := keys[r.Key.ID]
 			if !r.valid() || r.Key.Namespace != c.Namespace || event.PreviousKeyEvent != s.lastKey[r.Key.ID] || !slices.Equal(event.Actions, actions(before, r, exists)) {
@@ -105,18 +111,24 @@ func Open(c Config, signing *Signing, inner durable.Store, raw []byte, project P
 			}
 			keys[r.Key.ID] = r
 			s.lastKey[r.Key.ID] = event.ID
-		} else if event.Attempt != nil && event.Record == nil {
+		} else if event.Attempt != nil {
 			if !event.Attempt.valid() || event.PreviousKeyEvent != "" || !slices.Equal(event.Actions, []string{"upstream_" + event.Attempt.Status}) {
 				clear(clean)
 				return nil, nil, durable.ErrState
 			}
 			attempts[event.Attempt.Reference] = *event.Attempt
+		} else if event.Control != nil {
+			if !event.Control.Valid() || event.Control.Revision != uint64(len(controls)+1) || event.Control.AppliedAt.After(event.RecordedAt) || event.PreviousKeyEvent != "" || !slices.Equal(event.Actions, []string{"allocation_changed"}) {
+				clear(clean)
+				return nil, nil, durable.ErrState
+			}
+			controls = append(controls, *event.Control)
 		} else {
 			clear(clean)
 			return nil, nil, durable.ErrState
 		}
 	}
-	if !reflect.DeepEqual(keys, p.Keys) || len(recovered.Aliases) != len(p.Attempts) || len(attempts) != len(p.Attempts) {
+	if !reflect.DeepEqual(controls, p.Controls) || !reflect.DeepEqual(keys, p.Keys) || len(recovered.Aliases) != len(p.Attempts) || len(attempts) != len(p.Attempts) {
 		clear(clean)
 		return nil, nil, durable.ErrState
 	}
@@ -132,6 +144,14 @@ func Open(c Config, signing *Signing, inner durable.Store, raw []byte, project P
 }
 
 func (s *Store) normalize(p *Projection) error {
+	if p.Controls == nil {
+		p.Controls = []allocation.Commit{}
+	}
+	for i, c := range p.Controls {
+		if !c.Valid() || c.Revision != uint64(i+1) {
+			return ErrEvidence
+		}
+	}
 	if p.Keys == nil {
 		return ErrEvidence
 	}
@@ -247,6 +267,23 @@ func (s *Store) Save(raw []byte) error {
 		next.Events = append(next.Events, SignedEvent{event, token})
 		return nil
 	}
+	if len(p.Controls) < len(s.last.Controls) {
+		return durable.ErrState
+	}
+	for i, c := range p.Controls {
+		if i < len(s.last.Controls) {
+			if !reflect.DeepEqual(c, s.last.Controls[i]) {
+				return durable.ErrState
+			}
+		} else {
+			if c.AppliedAt.After(now) {
+				return durable.ErrState
+			}
+			if e := appendEvent(Event{Actions: []string{"allocation_changed"}, Control: &c}); e != nil {
+				return e
+			}
+		}
+	}
 	// Deterministic ordering makes batches reproducible without relying on Go maps.
 	ids := make([]string, 0, len(p.Keys))
 	for id := range p.Keys {
@@ -329,7 +366,13 @@ func eventPair(e Event) core.Association {
 	if e.Record != nil {
 		return e.Record.Key.Association
 	}
-	return e.Attempt.Association
+	if e.Attempt != nil {
+		return e.Attempt.Association
+	}
+	if e.Control != nil {
+		return e.Control.Command.Association
+	}
+	return core.Association{}
 }
 
 func (s *Store) Key(id core.KeyID, audience, sae string, pairs []core.Association) (SignedKeyView, error) {

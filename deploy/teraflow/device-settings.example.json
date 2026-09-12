@@ -1,0 +1,8 @@
+{
+  "profile": "transeuroogs-allocation-v1",
+  "ca_file": "/run/transeuroogs/mtls/ca.crt.pem",
+  "cert_file": "/run/transeuroogs/mtls/controller.crt.pem",
+  "key_file": "/run/transeuroogs/mtls/controller.key.pem",
+  "server_identity": "urn:transeuroogs:kme:LU-KMS",
+  "timeout": 5
+}

@@ -1,0 +1,81 @@
+package relay
+
+import (
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/allocation"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
+	"time"
+)
+
+var _ allocation.Manager = (*Engine)(nil)
+
+func (e *Engine) policy(s *state, r *record, n int, now time.Time) string {
+	f := allocation.LocalFacts(r.Source, r.Created, r.Expires, e.setup)
+	if peer, ok := e.cfg.Peers[r.Sender]; ok {
+		f.Issuer = peer.Identity
+	}
+	return s.Allocation.Check(r.Pair, n, f, now)
+}
+func (e *Engine) ApplyCommand(actor string, c allocation.Command) (allocation.Commit, error) {
+	if err := allocation.Authorize(e.setup, actor, c); err != nil {
+		return allocation.Commit{}, err
+	}
+	var out allocation.Commit
+	err := e.change(func(s *state) error {
+		before := s.Allocation.Revision
+		var err error
+		out, err = s.Allocation.Apply(e.setup, actor, c, e.now())
+		if err != nil {
+			return err
+		}
+		if len(c.Routes) > 0 && s.Allocation.Revision != before {
+			for _, id := range s.Order {
+				r := s.Keys[id]
+				if r.Pair == c.Association && !r.Sent && !r.Ready && !r.Voiding && !r.Delivered && r.Role != "target" {
+					r.Candidates = e.candidates(s, r.Pair.Slave, r.Sender)
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return allocation.Commit{}, err
+	}
+	return out, nil
+}
+func (e *Engine) ManagementView(pairs []core.Association) (allocation.View, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.broken || e.s.Allocation == nil {
+		return allocation.View{}, errJournal
+	}
+	now := e.now()
+	out := e.s.Allocation.View(e.setup, pairs, now)
+	for i := range out.Apps {
+		app := &out.Apps[i]
+		app.Counts.Capacity = e.capacity
+		for _, r := range e.s.Keys {
+			if r.Pair != app.Association {
+				continue
+			}
+			if r.Sent && !r.Ready && !r.Delivered && !r.Voiding {
+				app.Counts.InFlight[r.Next]++
+			}
+			if r.Delivered {
+				app.Counts.Delivered++
+			}
+			if r.Token != "" && !r.Voiding && now.Before(r.Expires) {
+				app.Counts.Reserved++
+			}
+			if r.Role == "relay" || r.Token != "" || !usable(r, now) {
+				continue
+			}
+			app.Counts.Available++
+			if reason := e.policy(&e.s, r, 1, now); reason != "" {
+				app.Counts.Denied[reason]++
+			} else {
+				app.Counts.Eligible++
+			}
+		}
+	}
+	return out, nil
+}

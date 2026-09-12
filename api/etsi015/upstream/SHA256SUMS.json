@@ -1,0 +1,7 @@
+{
+  "LICENSE": "a11e927c092fd9dd2de2129a76b3186f092760a06aee561a73425a79e9c60668",
+  "etsi-qkd-node-types.yang": "7883ff57519ae201581d8171ea26b4f0fba92cc0c7bdc0bbf9d71568296f9f33",
+  "etsi-qkd-sdn-node.yang": "4b7b3fdbdbbf258cb9a4231d2617d87c2f51f094ad7e5413605727cb04a38030",
+  "ietf-inet-types.yang": "12d98b0143a5ca5095b36420f9ebc1ffa61cfd2eaa850080244cadf01b86ddf9",
+  "ietf-yang-types.yang": "a04cdcc875764a76e89b7a0200c6b9d800b10713978093acda7840c7c2907c3f"
+}

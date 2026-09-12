@@ -2,7 +2,7 @@ GO ?= go
 PYTHON ?= python3
 APP_PYTHON ?= python3
 
-.PHONY: check fmt test vet build pki demo relay-demo segmented-demo metadata-demo compose-demo operational-demo app-test
+.PHONY: check fmt test vet build pki demo relay-demo segmented-demo metadata-demo sdn-demo compose-demo operational-demo app-test
 
 check:
 	$(PYTHON) tests/check_format.py $(GO)
@@ -46,6 +46,11 @@ metadata-demo: build
 	$(GO) build -trimpath -o .local/bin/test-pki ./src/cmd/test-pki
 	$(GO) build -trimpath -o .local/bin/kms-metadata ./src/cmd/kms-metadata
 	$(PYTHON) emulator/eagle1-kms/demo.py --binary .local/bin/kms --emulator .local/bin/eagle-emulator --pki-binary .local/bin/test-pki --metadata-binary .local/bin/kms-metadata
+
+sdn-demo: build
+	$(GO) build -trimpath -o .local/bin/test-pki ./src/cmd/test-pki
+	$(GO) build -trimpath -o .local/bin/kms-metadata ./src/cmd/kms-metadata
+	$(PYTHON) emulator/sdn/demo.py --binary .local/bin/kms --pki-binary .local/bin/test-pki --metadata-binary .local/bin/kms-metadata --node-output .local/sdn-node.json
 
 app-test:
 	$(APP_PYTHON) -m unittest discover -s src/application -p 'test_*.py'

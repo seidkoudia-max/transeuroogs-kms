@@ -21,6 +21,9 @@ func ProjectMetadata(c peering.Config) metadata.Projector {
 			}
 		}()
 		p := metadata.Projection{Keys: map[core.KeyID]metadata.Record{}}
+		if s.Allocation != nil {
+			p.Controls = s.Allocation.Commits
+		}
 		for id, k := range s.Keys {
 			if k == nil {
 				return p, core.ErrInvalid

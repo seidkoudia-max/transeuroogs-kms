@@ -76,7 +76,7 @@ func fixtureProject(raw []byte) (Projection, error) {
 		Attempts map[string]Attempt
 	}
 	e := json.Unmarshal(raw, &p)
-	return Projection{p.Keys, p.Attempts}, e
+	return Projection{Keys: p.Keys, Attempts: p.Attempts}, e
 }
 func (f *fixture) save() error {
 	b, _ := json.Marshal(map[string]any{"Keys": f.keys, "Attempts": f.attempts, "Material": "SYNTHETIC-MATERIAL-MUST-NOT-ESCAPE"})

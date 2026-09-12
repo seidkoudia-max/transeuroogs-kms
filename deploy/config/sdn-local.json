@@ -1,0 +1,73 @@
+{
+  "kme_id": "LU-KMS",
+  "capacity": 10000,
+  "identities": {
+    "urn:transeuroogs:sae:sae-lu": "SAE-LU",
+    "urn:transeuroogs:sae:sae-gr": "SAE-GR"
+  },
+  "associations": [
+    {
+      "master": "SAE-LU",
+      "slave": "SAE-GR"
+    }
+  ],
+  "metadata": {
+    "domain": "LU-lab",
+    "issuer": "urn:transeuroogs:kme:LU-KMS",
+    "namespace": "local-sdn-lab",
+    "credential_id": "sdn-lab-v1",
+    "signing_key_file": ".local/sdn-sign.key.pem",
+    "state_dir": ".local/sdn-state",
+    "max_events": 4096,
+    "clock_uncertainty_ms": 0,
+    "readers": {
+      "urn:transeuroogs:sae:unknown-sae": [
+        {
+          "master": "SAE-LU",
+          "slave": "SAE-GR"
+        }
+      ]
+    }
+  },
+  "sdn": {
+    "node_id": "97ee65bc-1587-4e48-843d-4a9fbcfc6cce",
+    "location": "synthetic LU lab",
+    "max_commands": 256,
+    "applications": [
+      {
+        "app_id": "26d86ad0-d730-4599-a6f8-13557f851243",
+        "remote_node_id": "ba5e4cd5-3591-41a6-9c8c-2e079050d1f3",
+        "association": {
+          "master": "SAE-LU",
+          "slave": "SAE-GR"
+        },
+        "rule": {
+          "paused": false,
+          "allowed_sources": [
+            "synthetic"
+          ],
+          "allowed_issuers": [
+            "urn:transeuroogs:kme:LU-KMS"
+          ],
+          "require_evidence": true,
+          "allow_satellite": false,
+          "max_generation_age_seconds": 3600,
+          "max_local_age_seconds": 600,
+          "max_keys_per_request": 16
+        }
+      }
+    ],
+    "principals": {
+      "urn:transeuroogs:sae:controller-sae": {
+        "associations": [
+          {
+            "master": "SAE-LU",
+            "slave": "SAE-GR"
+          }
+        ],
+        "write": true,
+        "routes": false
+      }
+    }
+  }
+}

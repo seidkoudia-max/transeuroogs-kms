@@ -3,6 +3,7 @@ package metadata
 
 import (
 	"errors"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/allocation"
 	"net/url"
 	"strings"
 	"time"
@@ -85,7 +86,8 @@ type Record struct {
 }
 
 func (r Record) valid() bool {
-	if !name(r.Key.Namespace) || !r.Key.ID.Valid() || !r.Key.Association.Valid() || r.CollectionIntent.IsZero() || !r.LocalExpiresAt.After(r.CollectionIntent) {
+	terminalUnknown := r.Uncertain && r.Voiding && !r.HoldingMaterial && r.SourceClass == "unknown" && r.LocalExpiresAt.Equal(r.CollectionIntent) && (r.Role == "relay" || (r.Role == "target" && r.SlaveState == core.Invalid))
+	if !name(r.Key.Namespace) || !r.Key.ID.Valid() || !r.Key.Association.Valid() || r.CollectionIntent.IsZero() || (!r.LocalExpiresAt.After(r.CollectionIntent) && !terminalUnknown) {
 		return false
 	}
 	if (r.Upstream != "" && !name(r.Upstream)) || (r.NextPeer != "" && !name(r.NextPeer)) {
@@ -162,6 +164,7 @@ func (a AttemptView) validFields() bool {
 }
 
 type Projection struct {
+	Controls []allocation.Commit
 	Keys     map[core.KeyID]Record
 	Attempts map[string]Attempt
 }
@@ -169,18 +172,33 @@ type Projection struct {
 type Projector func([]byte) (Projection, error)
 
 type Event struct {
-	Profile            string       `json:"profile"`
-	ID                 core.KeyID   `json:"event_id"`
-	Domain             string       `json:"domain"`
-	Issuer             string       `json:"issuer"`
-	Sequence           uint64       `json:"sequence"`
-	PreviousDigest     string       `json:"previous_digest"`
-	PreviousKeyEvent   core.KeyID   `json:"previous_key_event,omitempty"`
-	RecordedAt         time.Time    `json:"recorded_at"`
-	ClockUncertaintyMS *int64       `json:"clock_uncertainty_ms"`
-	Actions            []string     `json:"actions"`
-	Record             *Record      `json:"record,omitempty"`
-	Attempt            *AttemptView `json:"attempt,omitempty"`
+	Profile            string             `json:"profile"`
+	ID                 core.KeyID         `json:"event_id"`
+	Domain             string             `json:"domain"`
+	Issuer             string             `json:"issuer"`
+	Sequence           uint64             `json:"sequence"`
+	PreviousDigest     string             `json:"previous_digest"`
+	PreviousKeyEvent   core.KeyID         `json:"previous_key_event,omitempty"`
+	RecordedAt         time.Time          `json:"recorded_at"`
+	ClockUncertaintyMS *int64             `json:"clock_uncertainty_ms"`
+	Actions            []string           `json:"actions"`
+	Record             *Record            `json:"record,omitempty"`
+	Attempt            *AttemptView       `json:"attempt,omitempty"`
+	Control            *allocation.Commit `json:"control,omitempty"`
+}
+
+func (e Event) onePayload() bool {
+	n := 0
+	if e.Record != nil {
+		n++
+	}
+	if e.Attempt != nil {
+		n++
+	}
+	if e.Control != nil {
+		n++
+	}
+	return n == 1
 }
 
 type SignedEvent struct {

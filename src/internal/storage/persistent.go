@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"sync"
 
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/allocation"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/durable"
 )
@@ -18,6 +19,7 @@ type savedReservation struct {
 	IDs         []core.KeyID
 }
 type memoryState struct {
+	Allocation   *allocation.State `json:",omitempty"`
 	Version      int
 	Capacity     int
 	Binding      string
@@ -35,9 +37,9 @@ type Persistent struct {
 
 var _ core.Repository = (*Persistent)(nil)
 
-func OpenPersistent(capacity int, binding string, store durable.Store, raw []byte) (*Persistent, error) {
+func OpenPersistent(capacity int, binding string, store durable.Store, raw []byte, options ...*allocation.Setup) (*Persistent, error) {
 	defer clear(raw)
-	if store == nil {
+	if store == nil || len(options) > 1 {
 		return nil, core.ErrInvalid
 	}
 	if !durable.PlainSnapshot(raw) {
@@ -50,12 +52,14 @@ func OpenPersistent(capacity int, binding string, store durable.Store, raw []byt
 		return nil, err
 	}
 	p := &Persistent{memory: m, store: store, binding: binding}
+	m.setup = allocation.Select(options)
 	if raw != nil {
 		var s memoryState
 		if json.Unmarshal(raw, &s) != nil || s.Version != 1 || s.Capacity != capacity || s.Binding != binding || s.Keys == nil || s.Reservations == nil || len(s.Keys) > capacity {
 			p.Close()
 			return nil, durable.ErrState
 		}
+		m.allocation = s.Allocation
 		for id, e := range s.Keys {
 			if !id.Valid() || e.Meta.ID != id || !e.Meta.Association.Valid() {
 				p.Close()
@@ -90,6 +94,11 @@ func OpenPersistent(capacity int, binding string, store durable.Store, raw []byt
 			m.reservations[token] = reservation{r.Association, r.IDs}
 		}
 	}
+	m.allocation, err = allocation.Open(m.setup, m.allocation, raw != nil)
+	if err != nil {
+		p.Close()
+		return nil, durable.ErrState
+	}
 	if err = p.save(); err != nil {
 		p.Close()
 		return nil, err
@@ -101,7 +110,7 @@ func (p *Persistent) save() error {
 		return durable.ErrState
 	}
 	m := p.memory
-	s := memoryState{Version: 1, Capacity: m.capacity, Binding: p.binding, Keys: map[core.KeyID]savedEntry{}, Order: m.order, Reservations: map[core.KeyID]savedReservation{}}
+	s := memoryState{Allocation: m.allocation, Version: 1, Capacity: m.capacity, Binding: p.binding, Keys: map[core.KeyID]savedEntry{}, Order: m.order, Reservations: map[core.KeyID]savedReservation{}}
 	for id, e := range m.keys {
 		expire(e, m.now())
 		s.Keys[id] = savedEntry{e.meta, e.master, e.slave}

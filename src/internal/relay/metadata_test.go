@@ -14,8 +14,41 @@ import (
 
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/durable"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/etsi020"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/metadata"
+	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/testallocation"
 )
+
+func TestUnknownVoidHasTerminalMetadataWithoutInventedLifetime(t *testing.T) {
+	n := setup(t, false)
+	old := n.nodes["gr"]
+	cfg := old.cfg
+	old.Close()
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	sign, _ := metadata.NewSigning(key, "test")
+	mc := metadata.Config{Domain: "test", Issuer: cfg.Identity, Namespace: "test", CredentialID: "test", SigningKeyFile: "unused", MaxEvents: 100}
+	h, b, err := metadata.Open(mc, sign, &testallocation.Disk{}, nil, ProjectMetadata(cfg), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, err := OpenStore(cfg, []core.Association{association}, 100, link{n, "gr"}, h, b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n.nodes["gr"] = e
+	id := core.NewID()
+	if err = e.Void("lu", etsi020.Void{IDs: []core.KeyID{id}, Initiator: association.Master, Targets: []string{association.Slave}, Callback: cfg.Peers["lu"].URL + "/kmapi/v1/ext_keys/ack"}); err != nil {
+		t.Fatal("unknown void failed", err)
+	}
+	page, err := h.Page("urn:test:investigator", []core.Association{association}, 0, 0, 64)
+	if err != nil || len(page.Page.Events) != 1 {
+		t.Fatal(err)
+	}
+	r := page.Page.Events[0].Event.Record
+	if r == nil || !r.Voiding || !r.Uncertain || r.HoldingMaterial || !r.LocalExpiresAt.Equal(r.CollectionIntent) {
+		t.Fatal("invented unknown key custody")
+	}
+}
 
 func TestSignedMultipathIncidentTraceAndMetadataRestart(t *testing.T) {
 	n := setup(t, true)

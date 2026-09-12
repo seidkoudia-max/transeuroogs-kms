@@ -30,6 +30,7 @@ make demo
 make relay-demo
 make segmented-demo
 make metadata-demo
+make sdn-demo
 ```
 
 `make demo` generates a temporary development PKI under `.local/pki/`, starts a
@@ -67,6 +68,14 @@ an offline incident trace against both national histories. It checks restricted
 application summaries, restart recovery and rejection of tampered evidence.
 The same runtime supports local persistence and terrestrial relay. See the
 [metadata runtime](docs/METADATA_RUNTIME.md) for configuration, API and CLI usage.
+
+`make sdn-demo` runs the TeraFlow v7 driver contract against a local KMS over
+mTLS. It verifies metadata-based allocation, controller identity isolation,
+durable policy reconciliation and restart/replay behavior. The KMS also exposes
+a bounded ETSI 015 V2.1.1 agent profile; captured data is validated against the
+published YANG model in CI. Full TeraFlow cluster deployment and 021/023 draft
+integration remain pending. See [SDN allocation](docs/SDN_ALLOCATION.md) and the
+[TeraFlow lab bundle](deploy/teraflow/README.md).
 
 To leave a local ETSI 014 server running for experiments:
 
@@ -129,7 +138,8 @@ and [DEVELOPMENT_PLAN](docs/DEVELOPMENT_PLAN.md) before extending the service.
 
 The metadata increment implements signed local history and read-only incident
 tracing. [METADATA_PROFILE](docs/METADATA_PROFILE.md) distinguishes this executable
-subset from pending allocation policies, provider evidence and SDN integration.
+subset and the new local policies from pending provider evidence and full SDN
+controller deployment.
 The [SES interface checklist](docs/SES_METADATA_CHECKLIST.md) remains unanswered;
 the [incident tracing specification](docs/INCIDENT_TRACING.md) preserves the three
 trust segments and treats provider history and application receipt as unknown.

@@ -57,7 +57,7 @@ func GenerateRevoked(now time.Time, revokedNames []string) (PKI, error) {
 	}
 	out := PKI{CA: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), Certificates: map[string]Certificate{}}
 	var revoked []x509.RevocationListEntry
-	for _, name := range []string{"kms", "sae-lu", "sae-gr", "unknown-sae", "lu", "eagle-lu", "relay-a", "relay-b", "eagle-gr", "gr"} {
+	for _, name := range []string{"kms", "sae-lu", "sae-gr", "unknown-sae", "controller-sae", "lu", "eagle-lu", "relay-a", "relay-b", "eagle-gr", "gr"} {
 		lp, lk, err := ed25519.GenerateKey(rand.Reader)
 		if err != nil {
 			return PKI{}, err
