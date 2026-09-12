@@ -40,6 +40,10 @@ func OpenPersistent(capacity int, binding string, store durable.Store, raw []byt
 	if store == nil {
 		return nil, core.ErrInvalid
 	}
+	if !durable.PlainSnapshot(raw) {
+		store.Close()
+		return nil, durable.ErrState
+	}
 	m, err := NewMemory(capacity, nil)
 	if err != nil {
 		store.Close()

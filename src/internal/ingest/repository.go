@@ -73,7 +73,7 @@ func OpenStore(c upstream.Config, a core.Association, capacity int, p Provider, 
 			j.Close()
 		}
 	}()
-	if c.Validate() != nil || !a.Valid() || capacity < 1 || capacity > 100000 || p == nil || j == nil {
+	if c.Validate() != nil || !a.Valid() || capacity < 1 || capacity > 100000 || p == nil || j == nil || !durable.PlainSnapshot(raw) {
 		return nil, core.ErrInvalid
 	}
 	binding, _ := json.Marshal(struct {

@@ -16,7 +16,6 @@ import tempfile
 import time
 import urllib.parse
 
-
 def require(ok, message):
     if not ok:
         raise RuntimeError(message)
@@ -83,6 +82,10 @@ class Processes:
 
 
 def exercise(args, directory, procs):
+    metadata = None
+    if args.metadata_binary:
+        from metadata_lab import MetadataLab
+        metadata = MetadataLab(args.metadata_binary, directory, require)
     pki = {name: directory / (name + "-pki") for name in ("ses", "lu", "gr")}
     for dest in pki.values():
         subprocess.run([str(args.pki_binary), "--out", str(dest)], check=True,
@@ -110,6 +113,8 @@ def exercise(args, directory, procs):
                 "pki_dir": str(pki["ses"]), "certificate_name": site, "lifetime_seconds": 60,
             },
         }
+        if metadata:
+            metadata.configure(cfg, site)
         path = directory / (site + ".json")
         path.write_text(json.dumps(cfg, indent=2) + "\n")
         configs[site] = [args.binary, "--config", path, "--pki-dir", pki[site],
@@ -170,6 +175,8 @@ def exercise(args, directory, procs):
     require(code == 200 and inventory["stored_key_count"] == 0, "Pool not depleted")
     code, _ = local("lu", "/api/v1/keys/SAE-GR/enc_keys", {"number": 1})
     require(code == 503, "Exhausted upstream supplied a key")
+    if metadata:
+        metadata.verify(local, pki, context, previous["key_ID"])
     print(json.dumps({"result": "PASS", "matching_keys": len(seen), "independent_trust_domains": 3,
                       "local_authentication": True, "kid_preserved": True, "delayed_availability": True,
                       "replay_rejected_after_restart": True, "slave_works_with_master_kms_offline": True,
@@ -181,9 +188,12 @@ def main():
     parser.add_argument("--binary", required=True, type=pathlib.Path)
     parser.add_argument("--emulator", required=True, type=pathlib.Path)
     parser.add_argument("--pki-binary", required=True, type=pathlib.Path)
+    parser.add_argument("--metadata-binary", type=pathlib.Path)
     args = parser.parse_args()
     for field in ("binary", "emulator", "pki_binary"):
         setattr(args, field, getattr(args, field).resolve())
+    if args.metadata_binary:
+        args.metadata_binary = args.metadata_binary.resolve()
     procs = Processes()
     try:
         with tempfile.TemporaryDirectory(prefix="transeuroogs-segmented-") as tmp:

@@ -2,7 +2,7 @@ GO ?= go
 PYTHON ?= python3
 APP_PYTHON ?= python3
 
-.PHONY: check fmt test vet build pki demo relay-demo segmented-demo compose-demo operational-demo app-test
+.PHONY: check fmt test vet build pki demo relay-demo segmented-demo metadata-demo compose-demo operational-demo app-test
 
 check:
 	$(PYTHON) tests/check_format.py $(GO)
@@ -40,6 +40,12 @@ segmented-demo: build
 compose-demo:
 	docker compose run --build --rm pki
 	docker compose up --build --abort-on-container-exit --exit-code-from sae kms sae
+
+metadata-demo: build
+	$(GO) build -trimpath -o .local/bin/eagle-emulator ./src/cmd/eagle-emulator
+	$(GO) build -trimpath -o .local/bin/test-pki ./src/cmd/test-pki
+	$(GO) build -trimpath -o .local/bin/kms-metadata ./src/cmd/kms-metadata
+	$(PYTHON) emulator/eagle1-kms/demo.py --binary .local/bin/kms --emulator .local/bin/eagle-emulator --pki-binary .local/bin/test-pki --metadata-binary .local/bin/kms-metadata
 
 app-test:
 	$(APP_PYTHON) -m unittest discover -s src/application -p 'test_*.py'

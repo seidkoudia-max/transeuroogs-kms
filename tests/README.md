@@ -59,3 +59,27 @@ runs them explicitly and also runs the application tests and process demo.
 | APP-001 | `emulator/operational/demo.py` |
 | APP-002 | native OpenSSL success, wrong-key and wrong-identity tests in `src/application/test_session.py` |
 | APP-003 | concurrent notification, restart/expiry and association tests in `src/application/test_session.py` |
+
+## Metadata runtime acceptance
+
+`make metadata-demo` extends the independent-CA segmented process test with
+separate metadata signing credentials, scoped investigator identities, signed
+pagination, restart recovery and offline two-site verification/tracing. It also
+rejects application history reads and altered signed evidence. Existing key
+delivery contracts and the master-offline scenario still pass.
+
+| Requirements/subset | Test groups |
+| --- | --- |
+| META-001, META-003 | `TestEvidenceVerificationScopeReplayAndRevocation`, `TestTamperAndTruncationRejectedOnRecovery` |
+| META-004, META-005 (delivery only) | `TestPersistentDeliveryRaceAndAmbiguousCommitWithMetadata`, `TestUncertainCommitWithholdsHistoryUntilRecovery` |
+| META-007, META-008 | `TestIncidentUsesCustodyInsteadOfGenerationAndFindsDeliveries`, `TestUnknownClocksPartialCoverageAndDistinctPaths`, `TestUpstreamCoverageMustIncludeExactNamespacePairAndKey`, relay metadata test and two-site metadata demo |
+| META-009 | `src/internal/metapi/http_test.go`, `TestAtomicHistoryRecoveryAndRedaction`, `TestAttemptAliasesNeverExposeReservationTokens`, real PostgreSQL metadata isolation test |
+| META-011 | `TestHistoryCapacityClockAndBindingFailClosed`, `TestOversizedSnapshotFailsBeforeInnerCommit`, bounded API request/response tests and evidence verification |
+| META-012 | `emulator/eagle1-kms/metadata_lab.py` with `make metadata-demo` |
+| OPS-002/003 with metadata | `TestPostgresMetadataAtomicRecoveryAndPublicIsolation` in the isolated PostgreSQL acceptance suite |
+
+The full META requirements are broader than this executable subset. META-002/010
+allocation policies, META-005 incident holds, META-006 inline protocol negotiation,
+provider attestations, archive/rotation, remediation and controller integration
+remain pending. See [METADATA_PROFILE](../docs/METADATA_PROFILE.md) for the coverage
+table and [METADATA_RUNTIME](../docs/METADATA_RUNTIME.md) for runtime limits.
