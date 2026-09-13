@@ -10,6 +10,15 @@ handling, service expiry and explicit retirement guards. The disruptive
 [integrated TeraFlow acceptance](../deploy/services/ACCEPTANCE.md) runs separately
 in the dedicated VM; CI does not claim to deploy that cluster.
 
+`make physical-unit` checks channel/protocol and synthetic telemetry boundaries
+without the separately supplied QNETSIM dependency. `make physical-test` requires
+the pinned QNETSIM snapshot and executes full DES pass/fault/buffer tests;
+absence is an error in that target. `make physical-demo` runs the full
+JFK–Windhof–Helmos–HellasQCI key path with three source processes, 32 matching
+application keys, incident/restart/source-outage checks and captured 015 data.
+The native TeraFlow acceptance is separate; see
+[the physical deployment record](../deploy/physical/README.md).
+
 | Requirements | Test groups |
 | --- | --- |
 | CORE-001, CORE-007 | `TestKeyValidationAndRedaction`, `TestUUIDs`, `TestSingleDeliveryAndTombstone` |
@@ -142,3 +151,11 @@ Go race tests cover deletion/reservation safety across local, ingest and relay
 repositories, including propagation of relay voids.
 See [SDN_SERVICES](../docs/SDN_SERVICES.md) for remaining conformance and deployment
 gates; this test is not a full TFS cluster or hardware acceptance.
+
+The multi-pass physical suite additionally checks Gamma–Gamma mean/variance,
+Raman power/bandwidth and direction limits, independent link random streams,
+undefined QBER outside contact, pass-boundary isolation, inherited expiry,
+per-pass refill quotas and starvation/pending-transfer preflight. Go tests cover
+bounded stdin-only synthetic provisioning, common clock gating and late-release
+burning. `make physical-timeline-demo` records authenticated observations of all
+four KMSs through three passes and checks matching application keys and replay.

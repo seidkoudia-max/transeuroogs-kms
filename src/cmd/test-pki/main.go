@@ -11,13 +11,15 @@ import (
 
 func main() {
 	out := flag.String("out", ".local/pki", "directory for synthetic laboratory certificates (replaces existing test files)")
-	profile := flag.String("profile", "default", "synthetic test identity profile: default, luxembourg or services")
+	profile := flag.String("profile", "default", "synthetic test identity profile: default, luxembourg, services or physical")
 	flag.Parse()
 	generate := testpki.Generate
 	switch *profile {
 	case "default":
 	case "services":
 		generate = testpki.GenerateServices
+	case "physical":
+		generate = testpki.GeneratePhysical
 	case "luxembourg":
 		generate = testpki.GenerateLuxembourg
 	default:

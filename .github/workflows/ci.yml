@@ -22,6 +22,8 @@ jobs:
           cache: true
       - name: Format, vet, race tests and build
         run: make check
+      - name: Physical model and synthetic telemetry safety
+        run: make physical-unit
       - name: Verify 1000 synthetic keys over mutual TLS
         run: make demo
       - name: Verify separate KMS processes, relay, multipath, failover and restart
