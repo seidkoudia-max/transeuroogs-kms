@@ -63,3 +63,10 @@ federation-demo: build
 	$(GO) build -trimpath -o .local/bin/eagle-emulator ./src/cmd/eagle-emulator
 	$(GO) build -trimpath -o .local/bin/test-pki ./src/cmd/test-pki
 	$(PYTHON) emulator/eagle1-kms/demo.py --binary .local/bin/kms --emulator .local/bin/eagle-emulator --pki-binary .local/bin/test-pki --federation
+
+.PHONY: sdn-services-demo
+sdn-services-demo: build
+	$(GO) build -trimpath -o .local/bin/test-pki ./src/cmd/test-pki
+	$(GO) build -trimpath -o .local/bin/kms-metadata ./src/cmd/kms-metadata
+	$(PYTHON) -m unittest discover -s tests -p test_sdn_services.py
+	$(PYTHON) emulator/sdn/services.py --binary .local/bin/kms --pki-binary .local/bin/test-pki --metadata-binary .local/bin/kms-metadata --node-output .local/sdn-services-node.json

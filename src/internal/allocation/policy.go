@@ -114,9 +114,11 @@ type Binding struct {
 	Rule         Rule             `json:"rule"`
 }
 type Principal struct {
-	Pairs  []core.Association `json:"associations"`
-	Write  bool               `json:"write"`
-	Routes bool               `json:"routes"`
+	Pairs     []core.Association `json:"associations"`
+	Write     bool               `json:"write"`
+	Routes    bool               `json:"routes"`
+	Services  bool               `json:"services,omitempty"`
+	Telemetry bool               `json:"telemetry,omitempty"`
 }
 type Config struct {
 	NodeID      core.KeyID           `json:"node_id"`
@@ -124,6 +126,7 @@ type Config struct {
 	Apps        []Binding            `json:"applications"`
 	Principals  map[string]Principal `json:"principals"`
 	MaxCommands int                  `json:"max_commands"`
+	Services    *ServiceConfig       `json:"services,omitempty"`
 }
 
 func (c Config) Validate(pairs []core.Association) error {
@@ -140,7 +143,7 @@ func (c Config) Validate(pairs []core.Association) error {
 		ids[a.AppID] = true
 	}
 	for id, p := range c.Principals {
-		if !URI(id) || len(p.Pairs) == 0 || len(p.Pairs) > len(pairs) || (!p.Write && p.Routes) {
+		if !URI(id) || len(p.Pairs) == 0 || len(p.Pairs) > len(pairs) || (!p.Write && (p.Routes || p.Services)) || (p.Telemetry && (p.Write || p.Routes || p.Services)) || ((p.Services || p.Telemetry) && c.Services == nil) {
 			return core.ErrInvalid
 		}
 		for i, a := range p.Pairs {
@@ -148,6 +151,9 @@ func (c Config) Validate(pairs []core.Association) error {
 				return core.ErrInvalid
 			}
 		}
+	}
+	if !c.Services.valid(c) {
+		return core.ErrInvalid
 	}
 	return nil
 }
@@ -167,9 +173,13 @@ type Command struct {
 	Rule             *Rule            `json:"rule,omitempty"`
 	Routes           []string         `json:"routes,omitempty"`
 	LocalTTL         *uint32          `json:"local_ttl_seconds,omitempty"`
+	Service          *ServiceCommand  `json:"service,omitempty"`
 }
 
 func (c Command) Valid() bool {
+	if c.Service != nil {
+		return c.ID.Valid() && c.Association.Valid() && c.Rule == nil && len(c.Routes) == 0 && c.LocalTTL == nil && c.Service.Valid()
+	}
 	if !c.ID.Valid() || !c.Association.Valid() || (c.Rule == nil && len(c.Routes) == 0 && c.LocalTTL == nil) || (c.Rule != nil && !c.Rule.Valid()) || len(c.Routes) > 64 || (c.LocalTTL != nil && (c.Rule != nil || *c.LocalTTL > 2678400)) {
 		return false
 	}
@@ -199,6 +209,7 @@ type State struct {
 	Apps     []Binding           `json:"applications"`
 	Routes   map[string][]string `json:"routes"`
 	Commits  []Commit            `json:"commits"`
+	Services *ServiceState       `json:"services,omitempty"`
 }
 
 func Clone[T any](v T) T { b, _ := json.Marshal(v); var out T; _ = json.Unmarshal(b, &out); return out }
@@ -224,7 +235,7 @@ func Open(setup *Setup, saved *State, established bool) (*State, error) {
 	bound.Config.Principals = nil
 	bytes, _ := json.Marshal(bound)
 	hash := sha256.Sum256(bytes)
-	s := &State{Profile: Profile, Binding: hex.EncodeToString(hash[:]), Apps: Clone(setup.Config.Apps), Routes: Clone(setup.Routes), Commits: []Commit{}}
+	s := &State{Profile: Profile, Binding: hex.EncodeToString(hash[:]), Apps: Clone(setup.Config.Apps), Routes: Clone(setup.Routes), Commits: []Commit{}, Services: newServices(setup.Config.Services)}
 	if saved == nil {
 		if established {
 			return nil, core.ErrInvalid
@@ -262,7 +273,16 @@ func Authorize(setup *Setup, actor string, c Command) error {
 		return core.ErrUnauthorized
 	}
 	p, ok := setup.Config.Principals[actor]
-	if !ok || !p.Write || !slices.Contains(p.Pairs, c.Association) || (len(c.Routes) > 0 && !p.Routes) {
+	if !ok || !slices.Contains(p.Pairs, c.Association) {
+		return core.ErrUnauthorized
+	}
+	if c.Service != nil && c.Service.Operation == "link_report" {
+		if !p.Telemetry {
+			return core.ErrUnauthorized
+		}
+		return nil
+	}
+	if !p.Write || (len(c.Routes) > 0 && !p.Routes) || (c.Service != nil && !p.Services) {
 		return core.ErrUnauthorized
 	}
 	return nil
@@ -281,6 +301,9 @@ func (s *State) Rule(a core.Association) (Rule, bool) {
 func (s *State) Check(a core.Association, n int, f Facts, now time.Time) string {
 	if s == nil {
 		return ""
+	}
+	if reason := s.ServiceGate(a, now); reason != "" {
+		return reason
 	}
 	r, ok := s.Rule(a)
 	if !ok {
@@ -334,6 +357,11 @@ func (s *State) Apply(setup *Setup, actor string, c Command, now time.Time) (Com
 			}
 		}
 	}
+	if c.Service != nil {
+		if err := s.serviceApply(setup, actor, c, now); err != nil {
+			return Commit{}, err
+		}
+	}
 	if c.Rule != nil {
 		s.Apps[index].Rule = Clone(*c.Rule)
 	}
@@ -379,16 +407,18 @@ type AppView struct {
 	Pool           core.PoolRef `json:"pool,omitzero"`
 	ProtectionGate string       `json:"protection_gate,omitempty"`
 	Binding
-	Counts Counts   `json:"counts"`
-	Routes []string `json:"routes"`
+	Service *ApplicationService `json:"service,omitempty"`
+	Counts  Counts              `json:"counts"`
+	Routes  []string            `json:"routes"`
 }
 type View struct {
-	Profile    string     `json:"profile"`
-	NodeID     core.KeyID `json:"node_id"`
-	Issuer     string     `json:"issuer"`
-	Revision   uint64     `json:"revision"`
-	ObservedAt time.Time  `json:"observed_at"`
-	Apps       []AppView  `json:"applications"`
+	Profile    string        `json:"profile"`
+	NodeID     core.KeyID    `json:"node_id"`
+	Issuer     string        `json:"issuer"`
+	Revision   uint64        `json:"revision"`
+	ObservedAt time.Time     `json:"observed_at"`
+	Apps       []AppView     `json:"applications"`
+	Links      []ManagedLink `json:"links,omitempty"`
 }
 
 func (s *State) View(setup *Setup, pairs []core.Association, now time.Time) View {
@@ -398,7 +428,12 @@ func (s *State) View(setup *Setup, pairs []core.Association, now time.Time) View
 			out.Apps = append(out.Apps, AppView{Binding: Clone(b), Routes: slices.Clone(s.Routes[b.Association.Slave]), Counts: Counts{Denied: map[string]int{}, InFlight: map[string]int{}}})
 		}
 	}
+	s.serviceView(setup, &out, pairs, now)
 	return out
+}
+
+type ChangeReader interface {
+	ManagementChanges([]core.Association, uint64, int) (ChangePage, error)
 }
 
 type Manager interface {

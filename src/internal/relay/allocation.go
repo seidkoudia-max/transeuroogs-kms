@@ -31,6 +31,13 @@ func (e *Engine) ApplyCommand(actor string, c allocation.Command) (allocation.Co
 		if err != nil {
 			return err
 		}
+		if s.Allocation.Revision != before && c.Service != nil && c.Service.Operation == "application_delete" {
+			for _, r := range s.Keys {
+				if r.Pair == c.Association {
+					startVoid(s, r, "")
+				}
+			}
+		}
 		if len(c.Routes) > 0 && s.Allocation.Revision != before {
 			for _, id := range s.Order {
 				r := s.Keys[id]
@@ -84,4 +91,13 @@ func (e *Engine) ManagementView(pairs []core.Association) (allocation.View, erro
 		}
 	}
 	return out, nil
+}
+
+func (e *Engine) ManagementChanges(pairs []core.Association, after uint64, limit int) (allocation.ChangePage, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.broken {
+		return allocation.ChangePage{}, errJournal
+	}
+	return e.s.Allocation.Changes(pairs, after, limit)
 }

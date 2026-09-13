@@ -5,6 +5,7 @@ package sdnapi
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -49,19 +50,28 @@ func New(manager allocation.Manager, config allocation.Config, identities map[st
 			return
 		}
 		if r.URL.Path == "/management/v1/capabilities" && r.Method == "GET" {
+			read := []string{"qkdn_id", "qkdn_version", "qkdn_location_id", "qkdn_capabilities", "qkd_applications"}
+			writes := []string{"preconfigured_application/app_qos/ttl (1..2678400 seconds)"}
+			commands := []string{"association_rule", "local_ttl", "configured_routes"}
+			if c.Services != nil {
+				read = append(read, "qkd_interfaces", "qkd_links")
+				writes = append(writes, "catalog_application_create_update_delete", "catalog_link_desired_state_create_update_delete")
+				commands = append(commands, "catalog_service_lifecycle", "adapter_link_report")
+			}
 			write(w, "application/json", map[string]any{
 				"profile": allocation.Profile, "etsi015_version": "2.1.1", "conformance": "partial_profile; not_independently_assessed",
-				"etsi015_read":  []string{"qkdn_id", "qkdn_version", "qkdn_location_id", "qkdn_capabilities", "qkd_applications"},
-				"etsi015_write": []string{"preconfigured_application/app_qos/ttl (1..2678400 seconds)"},
-				"etsi021":       "draft_0.0.1; interface_not_implemented", "etsi023": "draft_0.0.6; interface_not_implemented",
+				"etsi015_read": read, "etsi015_write": writes, "commands": commands,
+				"etsi021":      "draft_0.0.1; authoritative_model_unavailable; interface_not_implemented",
+				"etsi023":      "draft_0.0.6; authoritative_model_unavailable; interface_not_implemented",
 				"pool_binding": "configured; immutable_per_journal", "provider_evidence": "scoped_project_JWS; SES_adapter_input_pending",
-				"commands": []string{"association_rule", "local_ttl", "configured_routes"}, "monitoring": "scoped_local_snapshot_polling",
-				"unsupported": []string{"physical_QKD_control", "application_creation", "bandwidth_guarantees", "priority_scheduling", "notifications"},
+				"monitoring":       "scoped_local_snapshot_and_durable_change_pages; independent_adapter_reports_when_configured",
+				"physical_control": "desired_state_requires_adapter_ack; vendor_acceptance_pending",
+				"unsupported":      []string{"arbitrary_identity_registration", "bandwidth_guarantees", "priority_scheduling", "RFC8040_notification_streams", "automatic_physical_adapter_provisioning"},
 			})
 			return
 		}
 		if r.URL.Path == "/management/v1/commands" && r.Method == "POST" {
-			if !grant.Write {
+			if !grant.Write && !grant.Telemetry {
 				fail(403)
 				return
 			}
@@ -94,7 +104,14 @@ func New(manager allocation.Manager, config allocation.Config, identities map[st
 			write(w, "application/json", v)
 			return
 		}
+		if r.URL.Path == "/management/v1/changes" && r.Method == "GET" {
+			changes(w, r, manager, grant.Pairs)
+			return
+		}
 		if standard && strings.HasPrefix(r.URL.Path, NodePath) {
+			if c.Services != nil && serviceMutation(w, r, manager, c, saes, actor) {
+				return
+			}
 			if r.Method != "GET" && r.Method != "PUT" {
 				fail(405)
 				return
@@ -174,17 +191,38 @@ func New(manager allocation.Manager, config allocation.Config, identities map[st
 func nodeView(c allocation.Config, saes map[string]string, v allocation.View) map[string]any {
 	apps := []map[string]any{}
 	for _, app := range v.Apps {
+		if app.Service != nil && !app.Service.Registered {
+			continue
+		}
 		qos := map[string]any{"clients_shared_path_enable": false, "clients_shared_keys_required": false}
 		if app.Rule.MaxLocalAgeSeconds > 0 {
 			qos["ttl"] = app.Rule.MaxLocalAgeSeconds
 		}
-		apps = append(apps, map[string]any{"app_id": app.AppID, "app_type": "etsi-qkd-node-types:CLIENT", "server_app_id": saes[app.Association.Master], "client_app_id": []string{saes[app.Association.Slave]}, "local_qkdn_id": c.NodeID, "remote_qkdn_id": app.RemoteNodeID, "app_qos": qos})
+		data := map[string]any{"app_id": app.AppID, "app_type": "etsi-qkd-node-types:CLIENT", "server_app_id": saes[app.Association.Master], "client_app_id": []string{saes[app.Association.Slave]}, "local_qkdn_id": c.NodeID, "remote_qkdn_id": app.RemoteNodeID, "app_qos": qos}
+		if app.Service != nil {
+			status := "ON"
+			if app.Rule.Paused {
+				status = "DISCONNECTED"
+			}
+			if app.Service.Expires != nil && !v.ObservedAt.Before(*app.Service.Expires) {
+				status = "OUT-OF-TIME"
+			}
+			data["app_status"] = "etsi-qkd-node-types:" + status
+			data["creation_time"] = app.Service.Created
+			if app.Service.Expires != nil {
+				data["expiration_time"] = app.Service.Expires
+			}
+			if len(app.Service.Links) > 0 {
+				data["backing_qkdl_id"] = app.Service.Links
+			}
+		}
+		apps = append(apps, data)
 	}
-	// No physical device/link observations are available from the KMS. Unknown
-	// status, SKR and QBER are omitted; a responding HTTP server cannot attest them.
+	interfaces, links := linkInventory(v)
+	// Measurements are omitted when the independent adapter observation is stale.
 	return map[string]any{"qkdn_id": c.NodeID, "qkdn_version": allocation.Profile, "qkdn_location_id": c.Location,
-		"qkdn_capabilities": map[string]bool{"link_stats_support": false, "application_stats_support": false, "key_relay_mode_enable": false},
-		"qkd_applications":  map[string]any{"qkd_app": apps}, "qkd_interfaces": map[string]any{}, "qkd_links": map[string]any{}}
+		"qkdn_capabilities": map[string]bool{"link_stats_support": c.Services != nil && len(c.Services.Links) > 0, "application_stats_support": false, "key_relay_mode_enable": false},
+		"qkd_applications":  map[string]any{"qkd_app": apps}, "qkd_interfaces": map[string]any{"qkd_interface": interfaces}, "qkd_links": map[string]any{"qkd_link": links}}
 }
 func resource(node map[string]any, v allocation.View, suffix string) (any, string, *allocation.AppView) {
 	if suffix == "" {
@@ -195,16 +233,35 @@ func resource(node map[string]any, v allocation.View, suffix string) (any, strin
 			return value, name, nil
 		}
 	}
+	for _, list := range []struct{ container, name, key string }{{"qkd_interfaces", "qkd_interface", "qkdi_id"}, {"qkd_links", "qkd_link", "qkdl_id"}} {
+		prefix := "/" + list.container + "/" + list.name + "="
+		if strings.HasPrefix(suffix, prefix) {
+			for _, item := range node[list.container].(map[string]any)[list.name].([]map[string]any) {
+				if fmt.Sprint(item[list.key]) == strings.TrimPrefix(suffix, prefix) {
+					return []map[string]any{item}, list.name, nil
+				}
+			}
+			return nil, "", nil
+		}
+	}
 	const prefix = "/qkd_applications/qkd_app="
 	if !strings.HasPrefix(suffix, prefix) {
 		return nil, "", nil
 	}
 	parts := strings.Split(strings.TrimPrefix(suffix, prefix), "/")
-	for i, app := range v.Apps {
+	for _, app := range v.Apps {
 		if string(app.AppID) != parts[0] {
 			continue
 		}
-		data := node["qkd_applications"].(map[string]any)["qkd_app"].([]map[string]any)[i]
+		if app.Service != nil && !app.Service.Registered {
+			continue
+		}
+		var data map[string]any
+		for _, item := range node["qkd_applications"].(map[string]any)["qkd_app"].([]map[string]any) {
+			if item["app_id"] == app.AppID {
+				data = item
+			}
+		}
 		if len(parts) == 1 {
 			return []map[string]any{data}, "qkd_app", &app
 		}
@@ -234,13 +291,25 @@ func body(r *http.Request, want string) ([]byte, int) {
 	return b, 0
 }
 func decodeCommand(b []byte, out *allocation.Command) error {
-	if metadata.DecodeRequest(b, out, "command_id", "expected_revision", "association", "rule", "routes", "local_ttl_seconds") != nil || !out.Valid() {
+	if metadata.DecodeRequest(b, out, "command_id", "expected_revision", "association", "rule", "routes", "local_ttl_seconds", "service") != nil || !out.Valid() {
 		return core.ErrInvalid
 	}
 	var fields map[string]json.RawMessage
 	_ = json.Unmarshal(b, &fields)
 	if fields["expected_revision"] == nil || metadata.DecodeRequest(fields["association"], &out.Association, "master", "slave") != nil {
 		return core.ErrInvalid
+	}
+	if out.Service != nil {
+		if metadata.DecodeRequest(fields["service"], out.Service, "operation", "resource_id", "ttl", "expires_at", "backing_links", "enabled", "report") != nil {
+			return core.ErrInvalid
+		}
+		if out.Service.Report != nil {
+			var service map[string]json.RawMessage
+			_ = json.Unmarshal(fields["service"], &service)
+			if metadata.DecodeRequest(service["report"], out.Service.Report, "sequence", "desired_revision", "observed_at", "status", "interface_status", "skr", "eskr", "qber") != nil {
+				return core.ErrInvalid
+			}
+		}
 	}
 	if out.Rule != nil {
 		names := []string{"paused", "allowed_sources", "allowed_issuers", "require_evidence", "allow_satellite", "max_generation_age_seconds", "max_local_age_seconds", "max_keys_per_request"}

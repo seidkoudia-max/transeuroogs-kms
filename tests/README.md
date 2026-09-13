@@ -124,3 +124,15 @@ acceptance uses a disposable SoftHSM token. Neither test establishes physical
 HSM protection, SES acceptance or independent ETSI conformance. See
 [REMOTE_QCI_UPGRADES](../docs/REMOTE_QCI_UPGRADES.md) for remaining software and
 deployment boundaries.
+
+# SDN services increment
+
+`make sdn-services-demo` runs failure/ownership tests and two separate synthetic
+KMS processes over independent mTLS roots with the actual TFS v7 driver contract.
+It checks adapter authorization, lifecycle, inventory/sampling, lost activation
+reply, restart replay and abort preserving a newer policy.
+Validate `.local/sdn-services-node.json` with `tests/validate_sdn_yang.py`.
+Go race tests cover deletion/reservation safety across local, ingest and relay
+repositories, including propagation of relay voids.
+See [SDN_SERVICES](../docs/SDN_SERVICES.md) for remaining conformance and deployment
+gates; this test is not a full TFS cluster or hardware acceptance.

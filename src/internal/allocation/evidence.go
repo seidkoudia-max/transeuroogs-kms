@@ -3,6 +3,7 @@ package allocation
 import (
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/core"
 	"github.com/seidkoudia-max/transeuroogs-kms/src/internal/federation"
+	"time"
 )
 
 // ProviderFacts accepts only evidence already verified at the repository input
@@ -29,9 +30,12 @@ func ProviderFacts(f Facts, s *federation.State, id core.KeyID, setup *Setup) Fa
 // Preflight applies only request-level limits. It is used solely when a known
 // evidence adapter will supply and verify every selected key's facts before
 // delivery. Per-key policy is always evaluated after that consuming call.
-func (s *State) Preflight(a core.Association, n int) string {
+func (s *State) Preflight(a core.Association, n int, now time.Time) string {
 	if s == nil {
 		return ""
+	}
+	if reason := s.ServiceGate(a, now); reason != "" {
+		return reason
 	}
 	for _, app := range s.Apps {
 		if app.Association == a {

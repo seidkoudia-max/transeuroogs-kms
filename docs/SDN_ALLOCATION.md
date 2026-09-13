@@ -5,8 +5,9 @@ and add a TransEuroOGS policy application and KMS driver. Building a new general
 SDN controller is outside this increment. The runnable local test exercises the
 actual v7 driver contract against a KMS over mTLS. A real TeraFlow v7 controller
 is also deployed in the isolated local Ubuntu/MicroK8s allocation lab; see the
-[deployment acceptance record](../deploy/teraflow/ACCEPTANCE.md). This does not
-extend the KMS profile to physical link/service provisioning.
+[deployment acceptance record](../deploy/teraflow/ACCEPTANCE.md). The [service increment](SDN_SERVICES.md) extends the source with catalog lifecycle,
+adapter acknowledgements, monitoring and multi-domain coordination. The running
+cluster still uses the prior image.
 
 ## Responsibility and standards boundary
 
@@ -44,8 +45,8 @@ keys, KIDs, tokens, fingerprints or protocol extensions through management.
 The source classes are `synthetic`, `satellite`, `terrestrial`, `unknown`.
 Locally generated synthetic material has a local generation observation;
 the synthetic upstream 014 service supplies an unverified source claim with
-unknown generation time. Relayed origin remains unknown. No runtime adapter
-currently supplies verified satellite/terrestrial provenance. Requiring such
+unknown generation time. Relayed origin remains unknown. The [remote-QCI increment](REMOTE_QCI_UPGRADES.md) adds a separately verified
+provider-evidence adapter contract; actual vendor translation remains pending. Requiring such
 evidence therefore denies delivery; a controller cannot manufacture it by
 changing a rule. `allow_satellite` is an additional local entitlement check,
 not SES authorisation or proof of satellite origin.
@@ -118,8 +119,8 @@ Read-only operational observations may persist expiry in local/ingestion modes.
 Policy events extend the existing signed metadata profile with an optional
 `control` payload. Older events keep their signed encoding. Upgrade offline
 verifiers before importing pages with control events. Investigator access is
-still required for history; controllers receive only the command result and
-aggregate state. PostgreSQL's coarse metadata schema excludes policy history.
+still required for signed key history; controllers can also page their scoped
+management commits through the service increment. PostgreSQL's coarse metadata schema excludes policy history.
 
 ## TeraFlow integration and acceptance
 
@@ -140,7 +141,8 @@ they never cause blind overwrite. Use a private persistent outbox directory,
 one worker/outbox per node, and retain it across policy-process restarts.
 There is no distributed transaction across countries: report each node's outcome
 and reconcile independently. Strict bandwidth guarantees, admission priority,
-physical-path optimisation and multi-domain service rollback remain future work.
+physical-path optimisation remain future work. Multi-domain progress, exact replay and conservative
+abort now have the bounded [service workflow](SDN_SERVICES.md).
 
 Run `make check`, `make demo`, `make sdn-demo`, existing relay/segmented/metadata
 labs and `make operational-demo`. The SDN demo checks real TLS identity isolation,
@@ -168,5 +170,13 @@ restarts are injected; Betzdorf allocation changes use real NBI/Device calls,
 with independent node revisions and controller-independent key delivery.
 Received provenance remains `unknown`, so requiring verified evidence blocks
 delivery. The controller topology is device inventory, not physical QKD provisioning
-or a distributed policy transaction. IDQ/QUKY ingestion and QKD-protected relay
-are still pending.
+or a distributed policy transaction. Physical IDQ/QUKY acceptance remains pending. The separate protected-relay
+software increment is tested with synthetic 014 link sources; it is not installed
+in this running Luxembourg lab.
+
+## Service and monitoring extension (2026-09-13)
+
+[SDN_SERVICES](SDN_SERVICES.md) is the current coverage and acceptance record for
+optional application lifecycle, desired link control, separate adapter reports,
+scoped change pages, TFS monitoring and multi-domain workflow recovery.
+It supersedes the narrower baseline descriptions above where stated.
