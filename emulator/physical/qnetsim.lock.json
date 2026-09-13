@@ -1,0 +1,13 @@
+{
+  "engine": "QNETSIM standalone DES (used by QUASAR)",
+  "origin": "User-provided QCompute/qnetsim workspace, 2026-09-13 snapshot",
+  "files": {
+    "standalone_bundle/qnetsim/framework/core/des.py": "14894ea8c01a0d24bd789e7f9ba6349af5a54c76b5b9a577b656326bb5bb58b2",
+    "standalone_bundle/qnetsim/framework/core/log.py": "38dec4b865de68401d1f01c4dcbfbb05a57a5a92b03586dc07a7f231335590f4",
+    "standalone_bundle/qnetsim/framework/core/__init__.py": "4b3ba0249d2f203661443bfa9c4003fc8782e86e5c49aa1ca06dc8fb854eed7c",
+    "channels/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "channels/fso.py": "ddf9263d6692b33a8952cafb1d0c863c7f03d40984d700c5243942b0b339dd5f",
+    "studies/quasar_matera_helmos/run_study.py": "31dac83603ce2c400af75655694f8eaa5930b8cea2c93928f024f83b85162a46",
+    "studies/quasar_matera_helmos/inputs.json": "636c466bd7c93a4b7e302213f3d352706bedff95512fb7a81ca4d04028457014"
+  }
+}

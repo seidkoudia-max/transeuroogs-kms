@@ -53,6 +53,11 @@ func GenerateServices(now time.Time) (PKI, error) {
 	return generate(now, nil, []string{"windhof", "jfk-idq", "jfk-tq", "betzdorf", "link-idq", "link-tq", "sae-windhof", "sae-betzdorf", "controller-sae", "observer-sae", "adapter-sae", "protection-sae", "unknown-sae"}, "transeuroogs-services")
 }
 
+// GeneratePhysical names the Helmos–Windhof three-segment emulation only.
+func GeneratePhysical(now time.Time) (PKI, error) {
+	return generate(now, nil, []string{"jfk", "windhof", "helmos", "hellas", "link-lux", "link-hellas", "eagle-pair", "sae-jfk", "sae-hellas", "controller-sae", "observer-sae", "adapter-sae", "protection-sae", "unknown-sae"}, "transeuroogs-physical")
+}
+
 func generate(now time.Time, revokedNames, names []string, namespace string) (PKI, error) {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -92,6 +97,9 @@ func generate(now time.Time, revokedNames, names []string, namespace string) (PK
 			leaf.DNSNames = []string{"localhost", name}
 			if namespace != "" {
 				leaf.DNSNames = append(leaf.DNSNames, name+"."+namespace+".svc.cluster.local")
+				if namespace == "transeuroogs-physical" {
+					leaf.DNSNames = append(leaf.DNSNames, "physical-lab.transeuroogs-physical.svc.cluster.local")
+				}
 			}
 			leaf.IPAddresses = []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}
 			leaf.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}

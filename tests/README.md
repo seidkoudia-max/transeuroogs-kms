@@ -10,6 +10,15 @@ handling, service expiry and explicit retirement guards. The disruptive
 [integrated TeraFlow acceptance](../deploy/services/ACCEPTANCE.md) runs separately
 in the dedicated VM; CI does not claim to deploy that cluster.
 
+`make physical-unit` checks channel/protocol and synthetic telemetry boundaries
+without the separately supplied QNETSIM dependency. `make physical-test` requires
+the pinned QNETSIM snapshot and executes full DES pass/fault/buffer tests;
+absence is an error in that target. `make physical-demo` runs the full
+JFK–Windhof–Helmos–HellasQCI key path with three source processes, 32 matching
+application keys, incident/restart/source-outage checks and captured 015 data.
+The native TeraFlow acceptance is separate; see
+[the physical deployment record](../deploy/physical/README.md).
+
 | Requirements | Test groups |
 | --- | --- |
 | CORE-001, CORE-007 | `TestKeyValidationAndRedaction`, `TestUUIDs`, `TestSingleDeliveryAndTombstone` |

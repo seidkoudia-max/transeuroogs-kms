@@ -141,3 +141,51 @@ func TestServicesProfileRolesAndNamespace(t *testing.T) {
 		}
 	}
 }
+
+func TestPhysicalProfileRolesAndNativeDNS(t *testing.T) {
+	now := time.Now()
+	p, err := GeneratePhysical(now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roots := x509.NewCertPool()
+	if !roots.AppendCertsFromPEM(p.CA) || len(p.Certificates) != 14 {
+		t.Fatal("incomplete physical laboratory profile")
+	}
+	for name, credential := range p.Certificates {
+		block, _ := pem.Decode(credential.CertPEM)
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		client := strings.Contains(name, "sae")
+		role := "kme"
+		if client {
+			role = "sae"
+		}
+		if len(cert.URIs) != 1 || cert.URIs[0].String() != "urn:transeuroogs:"+role+":"+name {
+			t.Fatal("physical role identity mismatch")
+		}
+		opts := x509.VerifyOptions{Roots: roots, CurrentTime: now, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}}
+		if _, err := cert.Verify(opts); err != nil {
+			t.Fatal(err)
+		}
+		opts.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+		if client {
+			if _, err := cert.Verify(opts); err == nil {
+				t.Fatal("physical client credential accepted as a server")
+			}
+			continue
+		}
+		for _, dns := range []string{name + ".transeuroogs-physical.svc.cluster.local", "physical-lab.transeuroogs-physical.svc.cluster.local"} {
+			opts.DNSName = dns
+			if _, err := cert.Verify(opts); err != nil {
+				t.Fatal(err)
+			}
+		}
+		opts.DNSName = name + ".transeuroogs-services.svc.cluster.local"
+		if _, err := cert.Verify(opts); err == nil {
+			t.Fatal("physical credential accepted in another lab namespace")
+		}
+	}
+}
