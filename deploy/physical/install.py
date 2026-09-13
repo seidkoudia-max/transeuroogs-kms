@@ -51,10 +51,12 @@ def secret(name,namespace,files):
 
 def objects(image, session, release):
     label=dict(LABELS,app='physical-lab')
-    command=['python','/opt/transeuroogs-physical/emulator/physical/terrestrial_demo.py','--binary','/opt/transeuroogs-physical/bin/kms',
+    runner='timeline.py' if release.get('profile') == 'physical-multipass-v2' else 'terrestrial_demo.py'
+    command=['python','/opt/transeuroogs-physical/emulator/physical/'+runner,'--binary','/opt/transeuroogs-physical/bin/kms',
              '--source-binary','/opt/transeuroogs-physical/bin/physical-source','--pki-binary','/opt/transeuroogs-physical/bin/test-pki',
              '--metadata-binary','/opt/transeuroogs-physical/bin/kms-metadata','--report-dir','/opt/transeuroogs-physical/data',
              '--native-controller','--state-dir','/state/'+session,'--prepared-pki','/run/physical-pki']
+    if runner == 'timeline.py': command += ['--simulation-speed','30']
     pod={'apiVersion':'v1','kind':'Pod','metadata':{'name':'physical-lab','namespace':NS,'labels':label,'annotations':{'transeuroogs.release':release['source_revision']}},
          'spec':{'restartPolicy':'Never','automountServiceAccountToken':False,
                  'securityContext':{'runAsUser':65532,'runAsGroup':65532,'fsGroup':65532},

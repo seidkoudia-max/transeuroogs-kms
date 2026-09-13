@@ -154,3 +154,34 @@ func TestPhysicalPermitConcurrentClaimAndRestart(t *testing.T) {
 		t.Fatal("non-durable permit accepted")
 	}
 }
+
+func TestCommonClockAndExpiredRelease(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "clock.json")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := WaitPhysicalClock(ctx, path); err == nil {
+		t.Fatal("missing barrier released clock")
+	}
+	start := time.Now().Add(-time.Second)
+	raw, _ := json.Marshal(start.UnixMilli())
+	if err := os.WriteFile(path, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := WaitPhysicalClock(context.Background(), path); err != nil || got.UnixMilli() != start.UnixMilli() {
+		t.Fatal("common clock mismatch")
+	}
+	repo, _ := storage.NewMemory(2, nil)
+	pair := core.Association{Master: "A", Slave: "B"}
+	p := validPermit()
+	p.Count = 2
+	p.ReadyAtSimS = .1
+	p.Releases = []PhysicalRelease{{AtSimS: .1, Count: 2, ExpiresAtSimS: .2}}
+	ctx, cancel = context.WithCancel(context.Background())
+	done := SupplyPhysicalAt(ctx, repo, pair, p, 1, start)
+	time.Sleep(20 * time.Millisecond)
+	cancel()
+	<-done
+	if repo.Inventory(pair).Available != 0 {
+		t.Fatal("late source revived expired physical capacity")
+	}
+}

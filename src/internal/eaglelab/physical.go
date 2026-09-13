@@ -33,8 +33,9 @@ type PhysicalPermit struct {
 }
 
 type PhysicalRelease struct {
-	AtSimS float64 `json:"at_sim_s"`
-	Count  int     `json:"count"`
+	AtSimS        float64 `json:"at_sim_s"`
+	Count         int     `json:"count"`
+	ExpiresAtSimS float64 `json:"expires_at_sim_s,omitempty"`
 }
 
 func ReadPhysicalPermit(path string, speed float64) (PhysicalPermit, time.Duration, error) {
@@ -75,6 +76,9 @@ func ReadPhysicalPermit(path string, speed float64) (PhysicalPermit, time.Durati
 	}
 	total, previous := 0, -1.0
 	for _, release := range p.Releases {
+		if math.IsNaN(release.ExpiresAtSimS) || math.IsInf(release.ExpiresAtSimS, 0) || release.ExpiresAtSimS < 0 || release.ExpiresAtSimS > 200000 || (release.ExpiresAtSimS != 0 && release.ExpiresAtSimS <= release.AtSimS) {
+			return p, 0, core.ErrInvalid
+		}
 		if math.IsNaN(release.AtSimS) || math.IsInf(release.AtSimS, 0) || release.AtSimS < p.ReadyAtSimS || release.AtSimS <= previous || release.AtSimS > 100000 || release.Count < 1 || release.Count > p.Count {
 			return p, 0, core.ErrInvalid
 		}
@@ -125,6 +129,10 @@ func ClaimPhysicalPermit(directory string, p PhysicalPermit) error {
 // release is due. The caller must claim the permit first. The retained claim
 // burns all unissued capacity if this process stops; it never resumes by reseeding.
 func SupplyPhysical(ctx context.Context, repo core.Repository, pair core.Association, p PhysicalPermit, speed float64) <-chan error {
+	return SupplyPhysicalAt(ctx, repo, pair, p, speed, time.Now())
+}
+
+func SupplyPhysicalAt(ctx context.Context, repo core.Repository, pair core.Association, p PhysicalPermit, speed float64, start time.Time) <-chan error {
 	result := make(chan error, 1)
 	go func() {
 		defer close(result)
@@ -132,7 +140,6 @@ func SupplyPhysical(ctx context.Context, repo core.Repository, pair core.Associa
 		if len(releases) == 0 && p.Count > 0 {
 			releases = []PhysicalRelease{{AtSimS: p.ReadyAtSimS, Count: p.Count}}
 		}
-		start := time.Now()
 		for _, release := range releases {
 			due := start.Add(time.Duration(release.AtSimS / speed * float64(time.Second)))
 			timer := time.NewTimer(max(0, time.Until(due)))
@@ -142,7 +149,14 @@ func SupplyPhysical(ctx context.Context, repo core.Repository, pair core.Associa
 				return
 			case <-timer.C:
 			}
-			if err := synthetic.Seed(repo, pair, release.Count, time.Now(), time.Hour); err != nil {
+			ttl := time.Hour
+			if release.ExpiresAtSimS != 0 {
+				ttl = min(ttl, time.Until(start.Add(time.Duration(release.ExpiresAtSimS/speed*float64(time.Second)))))
+				if ttl <= 0 {
+					continue
+				} // Late capacity is burned, never revived.
+			}
+			if err := synthetic.Seed(repo, pair, release.Count, time.Now(), ttl); err != nil {
 				result <- err
 				return
 			}
@@ -150,4 +164,32 @@ func SupplyPhysical(ctx context.Context, repo core.Repository, pair core.Associa
 		<-ctx.Done()
 	}()
 	return result
+}
+
+// WaitPhysicalClock synchronizes disposable sources to one coordinator clock.
+// Missing files never release keys. The coordinator atomically publishes one
+// non-secret Unix-millisecond integer after all KMS/controller setup completes.
+func WaitPhysicalClock(ctx context.Context, path string) (time.Time, error) {
+	for {
+		raw, err := os.ReadFile(path)
+		if err == nil {
+			var ms int64
+			if len(raw) > 32 || json.Unmarshal(raw, &ms) != nil {
+				return time.Time{}, core.ErrInvalid
+			}
+			start := time.UnixMilli(ms)
+			if delta := time.Until(start); delta < -time.Minute || delta > time.Minute {
+				return time.Time{}, core.ErrInvalid
+			}
+			return start, nil
+		}
+		if !os.IsNotExist(err) {
+			return time.Time{}, err
+		}
+		select {
+		case <-ctx.Done():
+			return time.Time{}, ctx.Err()
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
 }

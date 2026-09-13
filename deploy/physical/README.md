@@ -90,3 +90,31 @@ capacity conservation and no simultaneous OGS illumination.
 
 This is a laboratory integration result, not independent ETSI conformance,
 SES validation, an accepted finite-key security proof or operational deployment.
+
+## Multi-pass runtime profile
+
+The packager now defaults to `.local/physical/multipass/` after
+`make physical-timeline-demo`. It labels that bundle `physical-multipass-v2`;
+the installer selects `emulator/physical/timeline.py`. To package the older
+single-pass regression explicitly, use `--report-dir .local/physical/helmos-windhof`.
+
+The multi-pass process begins its common accelerated clock after native
+onboarding. While it runs, `native-acceptance.json` reports `RUNNING`, current
+KMS buffers, four separate physical-link observations and model timestamps.
+The requested monitor cadence is 60 simulated seconds. Completion verifies
+32 established keys per pass (96 total), 80 matching delivered keys and the
+remaining 16-key application buffer, subject to its one-hour lab TTL.
+`runtime-acceptance.json` retains all actual sampling times, delivery counts
+and unique telemetry receipts. Read that file for the full time series; the
+native service record carries the latest observation and aggregate evidence.
+Source expiry follows accelerated model deadlines. The earlier acceptance
+section above records the previous single-pass run, not the new target counts.
+
+The same namespace, retained PVC and explicit `--new-run` ownership rules apply.
+Prior sessions and spent-permit files remain intact. Restart is not a new pass:
+the finite input budget and physical permits refuse replay against spent state.
+
+The native installer selects a 30× clock to leave room for emulated amd64
+processes and controller RPCs; the local default is 60×. Both use the same
+physical samples and permit deadlines. The chosen factor is recorded in the
+runtime evidence and can be overridden with the runner's `--simulation-speed`.

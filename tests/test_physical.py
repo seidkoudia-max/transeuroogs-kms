@@ -172,6 +172,13 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual([p['port'] for p in ingress['ports']], [8443,8444,8445,8446])
         self.assertEqual(ingress['from'][0]['namespaceSelector']['matchLabels']['kubernetes.io/metadata.name'], 'tfs')
 
+    def test_multipass_deployment_selects_timeline_and_bounded_clock(self):
+        _,_,pod = objects('lab@sha256:'+'a'*64,'run-multi',
+                          dict(source_revision='b'*64,profile='physical-multipass-v2'))
+        command = pod['spec']['containers'][0]['command']
+        self.assertIn('/opt/transeuroogs-physical/emulator/physical/timeline.py',command)
+        self.assertEqual(command[command.index('--simulation-speed')+1],'30')
+
 
 class QNETSIMAcceptance(unittest.TestCase):
     @classmethod

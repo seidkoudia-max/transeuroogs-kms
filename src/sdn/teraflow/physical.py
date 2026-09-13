@@ -47,6 +47,7 @@ def sample(report, model_link, at_s):
     if type(row['active']) is not bool:
         raise ValueError('Invalid active state')
     for key in ('qber', 'budget_hz', 'sifted_hz'):
+        if key == 'qber' and row[key] is None and not row['active']: continue
         if not math.isfinite(row[key]) or row[key] < 0 or row[key] > (1 if key == 'qber' else 2**32-1):
             raise ValueError('Invalid physical rate')
     # Whitelist the metadata, never copy arbitrary report fields into SDN.
@@ -94,11 +95,11 @@ class PhysicalAdapter:
                       status=status, interface_status='ENABLED' if enabled else 'DISABLED',
                       skr=math.floor(observation['budget_hz']) if active else 0,
                       eskr=math.floor(observation['budget_hz']*.9) if active else 0,
-                      qber=f"{100*observation['qber']:.3f}")
+                      **({'qber':f"{100*observation['qber']:.3f}"} if observation['qber'] is not None else {}))
         if observation['model_link'] == 'eagle-offline-windhof-helmos':
             # A paired-key service has no single optical QBER. Never fabricate
             # a zero-error photon measurement for the completed middle segment.
-            report.pop('qber')
+            report.pop('qber',None)
         item = dict(link_id=link_id, fingerprint=fingerprint, observation=observation, status='pending',
                     command=dict(command_id=str(uuid.uuid4()), expected_revision=state['revision'],
                                  association=link['catalog']['association'],

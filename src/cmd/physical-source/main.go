@@ -35,6 +35,7 @@ func run() error {
 	permitPath := flag.String("permit", "", "physical capacity permit")
 	state := flag.String("state-dir", "", "retained spent-permit directory")
 	speed := flag.Float64("simulation-speed", 1, "simulated seconds per wall second")
+	clockFile := flag.String("clock-file", "", "optional common laboratory clock barrier file")
 	flag.Parse()
 	p, delay, err := eaglelab.ReadPhysicalPermit(*permitPath, *speed)
 	if err != nil {
@@ -86,7 +87,19 @@ func run() error {
 	defer server.Close()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	supply := eaglelab.SupplyPhysical(ctx, memory, pair, p, *speed)
+	supply := make(chan error, 1)
+	go func() {
+		start := time.Now()
+		if *clockFile != "" {
+			var err error
+			start, err = eaglelab.WaitPhysicalClock(ctx, *clockFile)
+			if err != nil {
+				supply <- err
+				return
+			}
+		}
+		supply <- <-eaglelab.SupplyPhysicalAt(ctx, memory, pair, p, *speed, start)
+	}()
 	fail := make(chan error, 1)
 	go func() { fail <- server.ServeTLS(listener, "", "") }()
 	if err := json.NewEncoder(os.Stdout).Encode(map[string]any{"event": "listening", "address": listener.Addr().String(), "synthetic": true, "link_id": p.LinkID}); err != nil {

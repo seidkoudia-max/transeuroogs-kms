@@ -1,0 +1,138 @@
+{
+  "schema": "transeuroogs-physical-scenario-v1",
+  "duration_s": 13200,
+  "bin_s": 2,
+  "processing_delay_s": 30,
+  "acquisition_s": 4,
+  "provider_key_limit": 192,
+  "seed": 20260913,
+  "orbit_profile": "synthetic circular pass aligned to Windhof and Helmos; not an EAGLE-1 ephemeris",
+  "satellite": {
+    "transmit_diameter_m": 0.25,
+    "pointing_sigma_urad": 1.0,
+    "zenith_transmission": 0.9,
+    "receiver_loss_db": 7.0,
+    "extra_loss_db": 0.0,
+    "bb84": {}
+  },
+  "terrestrial": [
+    {
+      "id": "fiber-windhof-jfk",
+      "vendor_label": "generic phase BB84, IDQ integration boundary",
+      "source": "JFK",
+      "target": "Windhof",
+      "length_km": 25,
+      "attenuation_db_km": 0.2,
+      "insertion_db": 3,
+      "fluctuations": {
+        "loss_sigma_db": 0.3,
+        "power_log_sigma": 0.6,
+        "correlation_s": 60,
+        "classical_power_w": 1e-05,
+        "raman_coefficient_per_km_nm": 1e-09,
+        "filter_nm": 0.1,
+        "direction": "forward"
+      }
+    },
+    {
+      "id": "fiber-helmos-hellas",
+      "vendor_label": "generic phase BB84, ETSI 014 integration boundary",
+      "source": "Helmos",
+      "target": "HellasQCI",
+      "length_km": 30,
+      "attenuation_db_km": 0.2,
+      "insertion_db": 3,
+      "fluctuations": {
+        "loss_sigma_db": 0.45,
+        "power_log_sigma": 0.6,
+        "correlation_s": 60,
+        "classical_power_w": 1.5e-05,
+        "raman_coefficient_per_km_nm": 1e-09,
+        "filter_nm": 0.1,
+        "direction": "forward"
+      }
+    }
+  ],
+  "faults": [],
+  "assumptions": [
+    "Windhof coordinates/height from QNETSIM ground defaults (approximate); Helmos coordinates/aperture from QUASAR. Windhof 1 m receiver is an uncalibrated lab assumption.",
+    "One transmitter, sequential Windhof/Helmos contacts in an illustrative aligned circular orbit. Operational ephemeris and pointing schedule require SES input.",
+    "0.25 m equivalent Gaussian transmit aperture, 1 urad pointing RMS, 0.9 zenith transmission and 0.6 detector efficiency are sensitivity assumptions",
+    "Fiber lengths 25 km Windhof-JFK and 30 km Helmos-HellasQCI are user supplied; loss, source and detector parameters are generic assumptions.",
+    "Model-truth single-photon budgeting with sample and authentication capacity charges; no finite-key or discrete-phase security proof; all exported material is independently random synthetic data",
+    "Three independent synthetic orbit/contact test cases scheduled 100 minutes apart; these are not successive revolutions of one mission trajectory.",
+    "Per-OGS Gamma\u2013Gamma irradiance with elevation-scaled Rytov variance, phenomenological aperture averaging and a Gaussian temporal copula; all turbulence, sky noise and coherence parameters need measurement.",
+    "Independent correlated fibre insertion-loss and classical-launch-power fluctuations; Raman coefficient, filter bandwidth and traffic levels are illustrative site inputs.",
+    "Pointwise QBER follows signal/noise statistics. Expected counts and conditional SKR budgets do not implement finite-key security or mission EC/PA."
+  ],
+  "stations": [
+    {
+      "name": "Windhof",
+      "domain": "Lux4QCI",
+      "latitude": 49.65,
+      "longitude": 5.95,
+      "altitude_m": 320,
+      "diameter_m": 1.0,
+      "obscuration_area": 0.1,
+      "turbulence": {
+        "zenith_rytov_variance": 0.15,
+        "aperture_variance_factor": 0.25,
+        "correlation_s": 4,
+        "zenith_sky_noise_hz_per_detector": 3000
+      }
+    },
+    {
+      "name": "Helmos",
+      "domain": "HellasQCI",
+      "latitude": 37.9854159375493,
+      "longitude": 22.19832088,
+      "altitude_m": 2340,
+      "diameter_m": 2.3,
+      "obscuration_area": 0.1035,
+      "turbulence": {
+        "zenith_rytov_variance": 0.08,
+        "aperture_variance_factor": 0.12,
+        "correlation_s": 4,
+        "zenith_sky_noise_hz_per_detector": 1500
+      }
+    }
+  ],
+  "buffers": {
+    "link_capacity_keys": 256,
+    "end_to_end_capacity_keys": 64,
+    "application_keys_per_request": 4,
+    "request_interval_s": 30,
+    "first_request_s": 700,
+    "key_lifetime_s": 1800
+  },
+  "passes": [
+    {
+      "id": "pass-1",
+      "start_s": 0,
+      "duration_s": 1200,
+      "altitude_km": 600,
+      "raan_offset_deg": 0
+    },
+    {
+      "id": "pass-2",
+      "start_s": 6000,
+      "duration_s": 1200,
+      "altitude_km": 620,
+      "raan_offset_deg": 2
+    },
+    {
+      "id": "pass-3",
+      "start_s": 12000,
+      "duration_s": 1200,
+      "altitude_km": 580,
+      "raan_offset_deg": -2
+    }
+  ],
+  "runtime": {
+    "simulation_speed": 60,
+    "monitor_interval_sim_s": 60,
+    "application_batch_keys": 16,
+    "application_interval_sim_s": 180,
+    "establish_per_pass": 32
+  }
+}

@@ -8,17 +8,19 @@ import datetime as dt
 import math
 
 
-def configure(qs, cfg):
+def configure(qs, cfg, contact=None):
     import numpy as np
     from skyfield.api import load, wgs84
     raw, v = qs.inputs()
     for row, site in zip((3, 9), cfg['stations']):
         for offset, field in enumerate(('latitude', 'longitude', 'altitude_m', 'diameter_m', 'obscuration_area')):
             v['C'+str(row+offset)] = site[field]
-    v['C26'] = 6978.137  # 600 km over equatorial reference radius; lab assumption.
-    v['C29'] = 0; v['C31'] = 0; v['C33'] = '2026-09-13T00:00:00'
+    contact = contact or {}
+    v['C26'] = 6378.137+contact.get('altitude_km',600)
+    v['C29'] = 0; v['C31'] = 0
     ts = load.timescale(builtin=True)
-    epoch = dt.datetime(2026, 9, 13, tzinfo=dt.timezone.utc)
+    epoch = dt.datetime(2026, 9, 13, tzinfo=dt.timezone.utc)+dt.timedelta(seconds=contact.get('start_s',0))
+    v['C33'] = epoch.strftime('%Y-%m-%dT%H:%M:%S')
     first_overhead = 300.
     motion = math.sqrt(qs.MU/(v['C26']*1000)**3)
 
@@ -37,7 +39,7 @@ def configure(qs, cfg):
     along_node = np.array([math.cos(raan), math.sin(raan), 0.])
     transverse = np.cross(pole, along_node)
     argument = math.atan2(float(first@transverse), float(first@along_node))-motion*first_overhead
-    v['C30'] = math.degrees(inc); v['C27'] = math.degrees(raan)%360; v['C32'] = math.degrees(argument)%360
+    v['C30'] = math.degrees(inc); v['C27'] = (math.degrees(raan)+contact.get('raan_offset_deg',0))%360; v['C32'] = math.degrees(argument)%360
     return raw, v, first_overhead+transit/2
 
 

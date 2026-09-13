@@ -22,7 +22,12 @@ The [physical emulation](docs/PHYSICAL_EMULATION.md) connects JFK–Windhof OGS
 (25 km fibre), EAGLE-1's simulated paired-key service, and Helmos OGS–HellasQCI
 (30 km fibre). QNETSIM models the pass, phase-BB84 rates, QBER and buffer
 filling/expiry; four real KMS processes exercise protected end-to-end delivery.
-`make physical-test` and `make physical-demo` run it. An interactive replay and
+`make physical-test` and `make physical-demo` run the single-pass regression.
+`make physical-timeline-demo` adds three passes, independent Gamma–Gamma and
+fibre Raman/loss fluctuations, four separate QBER/SKR panels and pointwise
+observations of all four KMSs. It establishes 32 application keys after each
+pass, verifies 80 matching deliveries and retains 16 buffered keys at completion.
+An interactive replay and
 [native TeraFlow laboratory](deploy/physical/README.md) expose the results.
 All key material is synthetic; the rate model is conditional and not a validated
 finite-key security calculation.

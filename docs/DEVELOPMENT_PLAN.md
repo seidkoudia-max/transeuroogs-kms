@@ -180,3 +180,11 @@ calibration, operational orbit/interfaces, finite/discrete-phase security
 validation, continuous hardware ingestion and production isolation/HA remain
 outstanding. It does not claim a complete EAGLE-1 implementation or a validated
 closed-loop digital twin.
+
+Physical emulation follow-up: four independent QBER/conditional-SKR traces,
+per-OGS Gamma–Gamma irradiance and per-fibre Raman/loss fluctuations are now
+implemented across a configurable synthetic pass catalogue. Pass-scoped pairing,
+expiry-aware provider refills, common-clock sources and pointwise four-KMS
+observations connect to bounded end-to-end application establishment. This is
+still a calibrated-input-dependent laboratory model; no SES or standards
+conformance milestone is inferred from it.

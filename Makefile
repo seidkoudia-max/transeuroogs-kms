@@ -86,10 +86,10 @@ services-bundle: services-deployment-test
 PHYSICAL_PYTHON ?= $(PYTHON)
 .PHONY: physical-unit physical-test physical-sim physical-demo
 physical-unit:
-	$(PYTHON) -m unittest discover -s tests -p test_physical.py
+	$(PYTHON) -m unittest discover -s tests -p 'test_physical*.py'
 
 physical-test:
-	QNETSIM_ACCEPTANCE=1 $(PHYSICAL_PYTHON) -m unittest discover -s tests -p test_physical.py
+	QNETSIM_ACCEPTANCE=1 $(PHYSICAL_PYTHON) -m unittest discover -s tests -p 'test_physical*.py'
 
 physical-sim:
 	$(PHYSICAL_PYTHON) emulator/physical/simulate.py --out .local/physical/helmos-windhof
@@ -100,3 +100,12 @@ physical-demo: build physical-sim
 	$(GO) build -trimpath -o .local/bin/kms-metadata ./src/cmd/kms-metadata
 	$(PYTHON) emulator/physical/terrestrial_demo.py --binary .local/bin/kms --source-binary .local/bin/physical-source --pki-binary .local/bin/test-pki --metadata-binary .local/bin/kms-metadata --report-dir .local/physical/helmos-windhof
 	$(PYTHON) emulator/physical/render.py --report .local/physical/helmos-windhof/report.json --acceptance .local/physical/helmos-windhof/runtime-acceptance.json --out .local/physical/helmos-windhof/report.html
+
+.PHONY: physical-multipass-sim physical-timeline-demo
+physical-multipass-sim:
+	$(PHYSICAL_PYTHON) emulator/physical/simulate.py --scenario emulator/physical/multipass.json --out .local/physical/multipass
+
+physical-timeline-demo: build physical-multipass-sim
+	$(GO) build -trimpath -o .local/bin/ ./src/cmd/test-pki ./src/cmd/physical-source ./src/cmd/kms-metadata
+	$(PYTHON) emulator/physical/timeline.py --binary .local/bin/kms --source-binary .local/bin/physical-source --pki-binary .local/bin/test-pki --metadata-binary .local/bin/kms-metadata --report-dir .local/physical/multipass
+	$(PYTHON) emulator/physical/render.py --report .local/physical/multipass/report.json --acceptance .local/physical/multipass/runtime-acceptance.json --out .local/physical/multipass/report.html

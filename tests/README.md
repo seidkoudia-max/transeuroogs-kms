@@ -151,3 +151,11 @@ Go race tests cover deletion/reservation safety across local, ingest and relay
 repositories, including propagation of relay voids.
 See [SDN_SERVICES](../docs/SDN_SERVICES.md) for remaining conformance and deployment
 gates; this test is not a full TFS cluster or hardware acceptance.
+
+The multi-pass physical suite additionally checks Gamma–Gamma mean/variance,
+Raman power/bandwidth and direction limits, independent link random streams,
+undefined QBER outside contact, pass-boundary isolation, inherited expiry,
+per-pass refill quotas and starvation/pending-transfer preflight. Go tests cover
+bounded stdin-only synthetic provisioning, common clock gating and late-release
+burning. `make physical-timeline-demo` records authenticated observations of all
+four KMSs through three passes and checks matching application keys and replay.

@@ -8,7 +8,7 @@ def render(report_path, output, acceptance=None):
     report = json.loads(Path(report_path).read_text())
     if acceptance:
         report['runtime_acceptance'] = json.loads(Path(acceptance).read_text())
-    template = Path(__file__).with_name('report.html').read_text()
+    template = Path(__file__).with_name('report-template.html').read_text()
     # JSON data is inert script content; escape HTML terminators.
     data = json.dumps(report, allow_nan=False).replace('<', '\\u003c').replace('&', '\\u0026')
     Path(output).write_text(template.replace('<!--REPORT_JSON-->', data))

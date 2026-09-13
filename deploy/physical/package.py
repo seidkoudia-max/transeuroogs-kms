@@ -3,6 +3,7 @@
 The separate user-owned QNETSIM dependency and all credentials stay outside.
 """
 import hashlib
+import argparse
 import io
 import json
 from pathlib import Path
@@ -14,19 +15,24 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
-    output = Path(sys.argv[1]); files = {}
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('output',type=Path)
+    parser.add_argument('--report-dir',type=Path,default=ROOT/'.local/physical/multipass')
+    args=parser.parse_args(); output=args.output; files={}
     for directory in ('emulator/physical', 'src/sdn/teraflow', 'deploy/physical'):
         for path in (ROOT/directory).rglob('*'):
             if path.is_file() and '__pycache__' not in path.parts:
                 files[str(path.relative_to(ROOT))] = path
     files['emulator/eagle1-kms/demo.py'] = ROOT/'emulator/eagle1-kms/demo.py'
-    for path in (ROOT/'.local/physical/helmos-windhof').glob('*.json'):
+    report=json.loads((args.report_dir/'report.json').read_text())
+    for path in args.report_dir.glob('*.json'):
         if path.name == 'report.json' or path.name.endswith('-permit.json'):
             files['data/'+path.name] = path
     for name in ('kms','physical-source','test-pki','kms-metadata'):
         files['bin/'+name] = ROOT/'.local/physical/linux'/name
     hashes = {name:hashlib.sha256(path.read_bytes()).hexdigest() for name,path in sorted(files.items())}
-    release = dict(files=hashes, source_revision=hashlib.sha256(json.dumps(hashes,sort_keys=True).encode()).hexdigest(),
+    release = dict(files=hashes, profile='physical-multipass-v2' if report['scenario'].get('runtime') else 'physical-v1',
+                   source_revision=hashlib.sha256(json.dumps(hashes,sort_keys=True).encode()).hexdigest(),
                    git_revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
                    dirty=bool(subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True).strip()))
     output.parent.mkdir(parents=True,exist_ok=True)

@@ -55,6 +55,7 @@ func run() error {
 	certName := flag.String("certificate-name", "kms", "certificate/key filename stem in PKI directory")
 	labSummary := flag.Bool("lab-summary", false, "emit material-free network laboratory summary on shutdown")
 	count := flag.Int("synthetic-keys", 0, "opt-in synthetic keys for the first configured association")
+	inputLimit := flag.Int("synthetic-input-limit", 0, "opt-in fresh laboratory stdin count channel; finite total budget, no key bytes")
 	ttl := flag.Duration("synthetic-ttl", time.Hour, "synthetic key lifetime")
 	initialize := flag.Bool("initialize-state", false, "explicitly provision a fresh operational state namespace")
 	migrate := flag.Bool("migrate-database", false, "apply database schema with a separate migration credential and exit")
@@ -71,6 +72,10 @@ func run() error {
 	if *count < 0 || *count > c.Capacity || *ttl <= 0 {
 		return fmt.Errorf("invalid synthetic provisioning parameters")
 	}
+	if *inputLimit < 0 || *inputLimit > c.Capacity || (*inputLimit > 0 && (*count != 0 || *ttl > time.Hour || c.Operational != nil || c.Eagle != nil || c.InterKMS == nil)) {
+		return fmt.Errorf("synthetic input requires a bounded fresh non-operational relay laboratory")
+	}
+	provisioning := *count > 0 || *inputLimit > 0
 	memory, err := storage.NewMemory(c.Capacity, nil)
 	if err != nil {
 		return err
@@ -101,7 +106,7 @@ func run() error {
 		defer pg.Close()
 		managed = pg
 		defer clear(recovered)
-		if *count > 0 && recovered != nil {
+		if provisioning && recovered != nil {
 			return fmt.Errorf("synthetic provisioning requires a fresh operational namespace")
 		}
 	}
@@ -125,7 +130,7 @@ func run() error {
 			}
 			defer managed.Close()
 		}
-		if *count > 0 && recovered != nil {
+		if provisioning && recovered != nil {
 			return fmt.Errorf("synthetic provisioning requires fresh metadata state")
 		}
 		signing, e := metadata.LoadSigning(c.Metadata.SigningKeyFile, c.Metadata.CredentialID)
@@ -152,7 +157,7 @@ func run() error {
 			return err
 		}
 		defer managed.Close()
-		if *count > 0 && recovered != nil {
+		if provisioning && recovered != nil {
 			return fmt.Errorf("synthetic provisioning requires fresh federation state")
 		}
 	}
@@ -266,7 +271,7 @@ func run() error {
 			}()
 		}
 		repo = engine
-		if *count > 0 && engine.Snapshot().Records > 0 {
+		if provisioning && engine.Snapshot().Records > 0 {
 			return fmt.Errorf("synthetic provisioning requires a fresh network state directory; restart with --synthetic-keys=0")
 		}
 	}
@@ -402,6 +407,13 @@ func run() error {
 	done := make(chan error, 1)
 	go func() { done <- server.ServeTLS(listener, "", "") }()
 	_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"event": "listening", "address": listener.Addr().String(), "kme_id": c.KMEID, "synthetic_keys": *count})
+	if *inputLimit > 0 {
+		go func() {
+			if err := synthetic.Input(os.Stdin, os.Stdout, repo, c.Associations[0], *inputLimit, *ttl); err != nil {
+				done <- fmt.Errorf("synthetic laboratory input stopped; no provisioning retry permitted")
+			}
+		}()
+	}
 	select {
 	case err := <-done:
 		if errors.Is(err, http.ErrServerClosed) {

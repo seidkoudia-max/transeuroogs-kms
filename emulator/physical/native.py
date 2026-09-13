@@ -16,8 +16,8 @@ from emulator.physical import profile
 HOST = 'physical-lab.transeuroogs-physical.svc.cluster.local'
 
 
-def fresh(node):
-    result = DeviceClient().stub.GetInitialConfig(DeviceId(device_uuid={'uuid':node}), timeout=20)
+def fresh(node, client):
+    result = client.stub.GetInitialConfig(DeviceId(device_uuid={'uuid':node}), timeout=20)
     for rule in result.config_rules:
         if rule.WhichOneof('config_rule') == 'custom' and rule.custom.resource_key == STATE:
             value = json.loads(rule.custom.resource_value)
@@ -28,9 +28,18 @@ def fresh(node):
 class Controller:
     def __init__(self, manager):
         self.manager = manager
+        self.device = DeviceClient()
+        self.context = ContextClient()
         self.nbi = NBI('nbiservice.tfs.svc.cluster.local')
-        self.drivers = {name: ControllerAdapter(profile.uid(name), manager(name,'observer-sae'), fresh,
+        self.drivers = {name: ControllerAdapter(profile.uid(name), manager(name,'observer-sae'), self.fresh,
                          actor='urn:transeuroogs:sae:controller-sae', nbi=self.nbi) for name in profile.NAMES}
+
+    def fresh(self, node):
+        return fresh(node, self.device)
+
+    def close(self):
+        self.device.close()
+        self.context.close()
 
     def onboard(self):
         for index, name in enumerate(profile.NAMES):
@@ -41,15 +50,15 @@ class Controller:
                     'device_type':'qkd-node', 'device_drivers':['DEVICEDRIVER_QKD'], 'device_config':{'config_rules':[
                         {'action':'CONFIGACTION_SET', 'custom':{'resource_key':'_connect/'+key, 'resource_value':value}}
                         for key,value in [('address',HOST),('port',str(8443+index)),('settings',json.dumps(settings))]]}}
-            try: ContextClient().stub.GetDevice(DeviceId(device_uuid={'uuid':profile.uid(name)}), timeout=20)
+            try: self.context.stub.GetDevice(DeviceId(device_uuid={'uuid':profile.uid(name)}), timeout=20)
             except grpc.RpcError as error:
                 if error.code() != grpc.StatusCode.NOT_FOUND: raise
                 self.nbi.request('POST','/devices',{'devices':[item]})
             existing = self.nbi.request('GET','/device/'+profile.uid(name))
             if existing['name'] != item['name']: raise RuntimeError('Conflicting native inventory owner')
-            fresh(profile.uid(name))
+            self.fresh(profile.uid(name))
         for link in profile.LINKS:
-            ContextClient().SetLink(Link(link_id={'link_uuid':{'uuid':profile.uid(link['id'])}}, name=link['label']+' [QNETSIM synthetic]',
+            self.context.SetLink(Link(link_id={'link_uuid':{'uuid':profile.uid(link['id'])}}, name=link['label']+' [QNETSIM synthetic]',
                                          link_endpoint_ids=[endpoint(name,link) for name in (link['source'],link['target'])]))
 
     def apply(self, name, command):
@@ -58,14 +67,14 @@ class Controller:
         return command
 
     def verify(self, name, link_id, expected):
-        actual = fresh(profile.uid(name))
+        actual = self.fresh(profile.uid(name))
         match = next(x for x in actual['links'] if x['catalog']['link_id'] == link_id)
         if match['state']['report'] != expected: raise RuntimeError('TeraFlow did not observe physical telemetry')
 
     def publish(self, result):
-        states = {name:fresh(profile.uid(name)) for name in profile.NAMES}
+        states = {name:self.fresh(profile.uid(name)) for name in profile.NAMES}
         counts = {name:state['applications'][0]['counts'] for name,state in states.items()}
-        context = ContextClient()
+        context = self.context
         for name, state in states.items():
             device = context.GetDevice(DeviceId(device_uuid={'uuid':profile.uid(name)}))
             for rule in device.device_config.config_rules:

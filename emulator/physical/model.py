@@ -58,21 +58,21 @@ class BB84:
         return self
 
 
-def rates(profile, optical_eta, background_multiplier=1.0):
+def rates(profile, optical_eta, background_multiplier=1.0, extra_noise_hz=0.):
     """Four detector UMZI; one half central-slot and one half basis sifting.
 
     Dead time includes discarded side slots. Bright calibration illumination is
     excluded: its mission-specific blanking/recovery contract remains pending.
     """
     p = profile.validate()
-    if not math.isfinite(optical_eta) or not 0 <= optical_eta <= 1 or not math.isfinite(background_multiplier) or background_multiplier < 0:
+    if not math.isfinite(optical_eta) or not 0 <= optical_eta <= 1 or not math.isfinite(background_multiplier) or background_multiplier < 0 or not math.isfinite(extra_noise_hz) or extra_noise_hz < 0:
         raise ValueError('Invalid channel transmission or noise')
     eta = optical_eta * p.detector_efficiency
     sigma_ps = p.jitter_fwhm_ps / 2.354820045
     gate = 1.0 if sigma_ps == 0 else math.erf(p.gate_ps / (2*math.sqrt(2)*sigma_ps))
     gains = [-math.expm1(-mu*eta) for mu in p.mus]
     all_signal_hz = p.symbol_hz * sum(prob*q for prob, q in zip(p.probabilities, gains))
-    noise = 4 * p.noise_hz_per_detector * background_multiplier
+    noise = 4 * p.noise_hz_per_detector * background_multiplier + extra_noise_hz
     live = 1 / (1 + (all_signal_hz+noise)/4*p.dead_time_ns*1e-9)
     accepted_noise = noise * min(1.0, p.gate_ps*1e-12*p.symbol_hz) * live
     error = (1-p.visibility*(1-2*p.optical_error)*math.exp(-p.phase_sigma_rad**2/2))/2
