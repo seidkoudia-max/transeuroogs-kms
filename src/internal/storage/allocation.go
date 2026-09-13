@@ -23,6 +23,13 @@ func (p *Persistent) ApplyCommand(actor string, c allocation.Command) (allocatio
 	if err != nil {
 		return allocation.Commit{}, err
 	}
+	if next.Revision != m.allocation.Revision && c.Service != nil && c.Service.Operation == "application_delete" {
+		for _, k := range m.keys {
+			if k.meta.Association == c.Association {
+				_ = m.InvalidateKey(k.meta.ID)
+			}
+		}
+	}
 	m.allocation = next
 	if err = p.save(); err != nil {
 		return allocation.Commit{}, err
@@ -70,4 +77,13 @@ func (p *Persistent) ManagementView(pairs []core.Association) (allocation.View, 
 		return allocation.View{}, err
 	}
 	return out, nil
+}
+
+func (p *Persistent) ManagementChanges(pairs []core.Association, after uint64, limit int) (allocation.ChangePage, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.broken {
+		return allocation.ChangePage{}, durable.ErrState
+	}
+	return p.memory.allocation.Changes(pairs, after, limit)
 }

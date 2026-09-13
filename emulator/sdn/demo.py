@@ -80,7 +80,8 @@ def main():
                 args.node_output.write_text(json.dumps({"etsi-qkd-sdn-node:qkd_node": node}))
             sae.require(len(driver.GetConfig(["__apps__"])) == 1, "Application discovery failed")
             sae.require(isinstance(driver.SetConfig([("/link", {})])[0], NotImplementedError), "Unsupported provisioning succeeded")
-            sae.require(isinstance(driver.SubscribeState([(STATE, 10, 1)])[0], NotImplementedError), "Unimplemented telemetry acknowledged")
+            sae.require(driver.SubscribeState([(STATE, 10, 1)]) == [True], "Snapshot subscription failed")
+            sae.require(len(list(driver.GetState())) == 1, "Subscribed snapshot unavailable")
             master, slave = sae.context(pki, "sae-lu"), sae.context(pki, "sae-gr")
             for name in ("sae-lu", "unknown-sae"):
                 denied = Driver("127.0.0.1", port, **settings(name))

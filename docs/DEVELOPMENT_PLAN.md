@@ -132,3 +132,16 @@ separate-process pool/incident/restart acceptance. The full remaining scope and
 external inputs are recorded there; lifetime archival/signing rollover, real
 SES/vendor acceptance, automatic HA and an agreed PQ profile remain outstanding.
 This source increment does not alter the running TeraFlow lab or complete M6.
+
+## SDN services increment (2026-09-13)
+
+M7 adds opt-in catalog lifecycle across all KMS backends, independently authorized
+adapter observations, 015 application/link CRUD and validated inventory/rates,
+scoped durable change pages, TFS sampling and a recoverable multi-domain workflow.
+`make sdn-services-demo` exercises two independent KMS processes and the pinned
+TFS driver, including lost activation replies and restarts.
+[SDN_SERVICES](SDN_SERVICES.md) records exact limits and missing inputs.
+021/023 authoritative models are unavailable; wire integration, guaranteed QoS,
+standard notifications/discovery, hardware adapters/acceptance and full-cluster
+workflow deployment remain pending. This does not complete M6 or independent
+standards conformance, and does not upgrade the already-running controller lab.

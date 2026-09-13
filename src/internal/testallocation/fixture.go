@@ -39,3 +39,22 @@ func (d *Disk) Save(b []byte) error {
 	return nil
 }
 func (*Disk) Close() {}
+
+const Adapter = "urn:test:adapter"
+
+func Services(s *allocation.Setup) {
+	p := s.Config.Principals[Actor]
+	p.Services = true
+	s.Config.Principals[Actor] = p
+	a := s.Config.Apps[0]
+	s.Config.Principals[Adapter] = allocation.Principal{Pairs: []core.Association{a.Association}, Telemetry: true}
+	s.Config.Services = &allocation.ServiceConfig{Links: []allocation.LinkCatalog{{ID: core.NewID(), Association: a.Association, LocalInterface: 1, RemoteInterface: 2, RemoteNode: a.RemoteNodeID, Model: "synthetic test device", Technology: "DV-QKD", AdapterIdentity: Adapter, Mode: "synthetic", ObservationTTLSeconds: 60}}}
+}
+func Service(s *allocation.Setup, revision uint64, operation string) allocation.Command {
+	ttl := uint32(3600)
+	c := allocation.Command{ID: core.NewID(), ExpectedRevision: revision, Association: s.Config.Apps[0].Association, Service: &allocation.ServiceCommand{ID: s.Config.Apps[0].AppID, Operation: operation}}
+	if operation == "application_create" || operation == "application_update" {
+		c.Service.TTL = &ttl
+	}
+	return c
+}

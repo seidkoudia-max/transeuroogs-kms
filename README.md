@@ -75,7 +75,10 @@ durable policy reconciliation and restart/replay behavior. The KMS also exposes
 a bounded ETSI 015 V2.1.1 agent profile; captured data is validated against the
 published YANG model in CI. A real TeraFlow v7 allocation lab now runs in an
 isolated local Ubuntu/MicroK8s VM. Physical service provisioning and 021/023 draft
-integration remain pending. See [SDN allocation](docs/SDN_ALLOCATION.md) and the
+integration remain pending. The new `make sdn-services-demo` tests catalog
+application/link lifecycle, separate synthetic adapter telemetry, TFS sampling
+and two-KMS orchestration recovery; see [SDN services](docs/SDN_SERVICES.md).
+The running controller images have not yet received this increment. See [SDN allocation](docs/SDN_ALLOCATION.md) and the
 [TeraFlow lab bundle](deploy/teraflow/README.md).
 
 The [Luxembourg two-link lab](deploy/luxembourg/README.md) adds four synthetic

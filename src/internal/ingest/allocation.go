@@ -19,7 +19,7 @@ func (r *Repository) policy(n int, collected, expires time.Time, ids ...core.Key
 	}
 	if len(ids) == 0 && r.s.Protection != nil {
 		if _, ok := r.provider.(EvidenceProvider); ok {
-			return r.s.Allocation.Preflight(r.pair, n)
+			return r.s.Allocation.Preflight(r.pair, n, r.now())
 		}
 	}
 	for _, id := range ids {
@@ -49,6 +49,15 @@ func (r *Repository) ApplyCommand(actor string, c allocation.Command) (allocatio
 	result, err := next.Apply(r.setup, actor, c, r.now())
 	if err != nil {
 		return allocation.Commit{}, err
+	}
+	if next.Revision != r.s.Allocation.Revision && c.Service != nil && c.Service.Operation == "application_delete" {
+		for _, k := range r.s.Keys {
+			if !k.State.Terminal() {
+				clear(k.Material)
+				k.Material = nil
+				k.State = core.Invalid
+			}
+		}
 	}
 	r.s.Allocation = next
 	if err = r.save(); err != nil {
@@ -83,4 +92,13 @@ func (r *Repository) ManagementView(pairs []core.Association) (allocation.View, 
 		// request or claims a remote inventory observation is currently available.
 	}
 	return out, nil
+}
+
+func (r *Repository) ManagementChanges(pairs []core.Association, after uint64, limit int) (allocation.ChangePage, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.broken {
+		return allocation.ChangePage{}, durable.ErrState
+	}
+	return r.s.Allocation.Changes(pairs, after, limit)
 }
