@@ -13,7 +13,7 @@ from .client import Client, ManagementError
 ALLOCATION = "/transeuroogs/allocation"
 STATE = "__transeuroogs_state__"
 CHANGES = "__transeuroogs_changes__"
-DEFAULT = ["__node__", "__capabilities__", "__apps__", "__interfaces__", "__links__"]
+DEFAULT = ["__node__", "__capabilities__", "__apps__", "__interfaces__", "__links__", STATE]
 
 
 class QKDDriver(_Driver):
@@ -58,9 +58,13 @@ class QKDDriver(_Driver):
                     result.extend(("/interface[" + str(a["qkdi_id"]) + "]", a) for a in node["qkd_interfaces"].get("qkd_interface", []))
                 elif key == "__links__":
                     result.extend(("/link[" + a["qkdl_id"] + "]", a) for a in node["qkd_links"].get("qkd_link", []))
-                elif key in ("__endpoints__", "__network_instances__"):
-                    # This KMS has no physical attachment observations. Do not
-                    # synthesize ports or quantum links for TFS path computation.
+                elif key == "__endpoints__":
+                    for iface in node["qkd_interfaces"].get("qkd_interface", []):
+                        number = str(iface["qkdi_id"])
+                        result.append(("/endpoints/endpoint[qkd-" + number + "]", {"uuid": "qkd-" + number, "name": "QKD interface " + number, "type": "qkd"}))
+                elif key == "__network_instances__":
+                    # The local catalog does not establish physical network
+                    # instance membership or authorize automatic path computation.
                     continue
                 elif key == STATE:
                     result.append((key, self.client.state()))
@@ -126,7 +130,7 @@ class QKDDriver(_Driver):
                     due = [k for k, v in self._subscriptions.items() if v[2] <= now]
                     for key in due:
                         self._subscriptions[key][2] = now + self._subscriptions[key][1]
-                    if not self._subscriptions:
+                    if not self._subscriptions and not blocking:
                         return
                 for key in due:
                     try:

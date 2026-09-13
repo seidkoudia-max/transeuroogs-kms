@@ -58,10 +58,15 @@ func run() error {
 	ttl := flag.Duration("synthetic-ttl", time.Hour, "synthetic key lifetime")
 	initialize := flag.Bool("initialize-state", false, "explicitly provision a fresh operational state namespace")
 	migrate := flag.Bool("migrate-database", false, "apply database schema with a separate migration credential and exit")
+	validate := flag.Bool("validate-config", false, "validate configuration without opening storage, credentials or listeners")
 	flag.Parse()
 	c, err := config.Load(*configPath)
 	if err != nil {
 		return err
+	}
+	if *validate {
+		fmt.Println("KMS configuration valid")
+		return nil
 	}
 	if *count < 0 || *count > c.Capacity || *ttl <= 0 {
 		return fmt.Errorf("invalid synthetic provisioning parameters")

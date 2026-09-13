@@ -107,7 +107,7 @@ func TestServiceConfigAndReportValidation(t *testing.T) {
 			s.Config.Principals[testallocation.Actor] = p
 		},
 		func(s *allocation.Setup) { s.Config.Services.Links[0].Mode = "adapter" },
-		func(s *allocation.Setup) { s.Config.Services.Links[0].RemoteNode = core.NewID() },
+		func(s *allocation.Setup) { s.Config.Services.Links[0].RemoteNode = "invalid" },
 		func(s *allocation.Setup) {
 			s.Config.Services.Links = append(s.Config.Services.Links, s.Config.Services.Links[0])
 		},
@@ -147,5 +147,15 @@ func TestServiceConfigAndReportValidation(t *testing.T) {
 		if r.Valid() {
 			t.Fatal("invalid decimal", qber)
 		}
+	}
+}
+
+func TestBackingLinkMayTerminateAtAnIntermediateTrustedNode(t *testing.T) {
+	a := core.Association{Master: "A", Slave: "B"}
+	s := testallocation.Setup(a)
+	testallocation.Services(s)
+	s.Config.Services.Links[0].RemoteNode = core.NewID()
+	if s.Config.Validate([]core.Association{a}) != nil {
+		t.Fatal("locally approved intermediate link rejected")
 	}
 }

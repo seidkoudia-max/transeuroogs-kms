@@ -115,3 +115,29 @@ func TestIssuedCertificatesCarryIssuerKeyIdentifier(t *testing.T) {
 		t.Fatal("test CA private key persisted")
 	}
 }
+
+func TestServicesProfileRolesAndNamespace(t *testing.T) {
+	p, err := GenerateServices(time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Certificates) != 13 {
+		t.Fatal("incomplete services profile")
+	}
+	for name, credential := range p.Certificates {
+		block, _ := pem.Decode(credential.CertPEM)
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(name, "sae") {
+			for _, usage := range cert.ExtKeyUsage {
+				if usage == x509.ExtKeyUsageServerAuth {
+					t.Fatal("client issued server authority")
+				}
+			}
+		} else if err = cert.VerifyHostname(name + ".transeuroogs-services.svc.cluster.local"); err != nil {
+			t.Fatal(err)
+		}
+	}
+}

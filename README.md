@@ -78,16 +78,19 @@ isolated local Ubuntu/MicroK8s VM. Physical service provisioning and 021/023 dra
 integration remain pending. The new `make sdn-services-demo` tests catalog
 application/link lifecycle, separate synthetic adapter telemetry, TFS sampling
 and two-KMS orchestration recovery; see [SDN services](docs/SDN_SERVICES.md).
-The running controller images have not yet received this increment. See [SDN allocation](docs/SDN_ALLOCATION.md) and the
-[TeraFlow lab bundle](deploy/teraflow/README.md).
+The [integrated service deployment](deploy/services/README.md) now runs this
+workflow through the real TeraFlow NBI/Device services, with four isolated KMSs,
+pool controls and two independent synthetic 014 link-key providers. See
+[SDN allocation](docs/SDN_ALLOCATION.md) and the [base lab](deploy/teraflow/README.md).
 
 The [Luxembourg two-link lab](deploy/luxembourg/README.md) adds four synthetic
 endpoint KMSs for Windhof–JFK (IDQ) and JFK–Betzdorf (ThinkQuantum QUKY), with
 ETSI 020 interworking inside the trusted JFK site. Its controller-driven tests
 cover both link failures, relay recovery, matching delivery, policy enforcement
-and controller outage. The new protected transport consumes 014 link keys in
-synthetic tests; deploying it in this lab and accepting actual vendor hardware
-remain separate steps. See [remote-QCI protection](docs/REMOTE_QCI_UPGRADES.md).
+and controller outage. Its original state is preserved. The separate integrated
+service lab deploys the protected transport with 014 link keys, lifecycle and
+incident controls; actual vendor hardware acceptance remains pending. See
+[remote-QCI protection](docs/REMOTE_QCI_UPGRADES.md).
 
 To leave a local ETSI 014 server running for experiments:
 

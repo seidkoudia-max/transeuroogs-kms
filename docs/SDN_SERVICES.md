@@ -6,9 +6,11 @@ coordinates material-free commands across independently committing KMSs.
 The SES-owned EAGLE-1 middle segment is unchanged.
 
 This is a **partial 015 V2.1.1 profile, without independent conformance evidence**.
-The previously deployed TeraFlow/Luxembourg images have not been upgraded by this
-increment. New acceptance uses two separate KMS processes and the actual pinned
-TeraFlow v7 driver contract, not the full controller cluster or physical devices.
+The [integrated deployment](../deploy/services/README.md) now runs the workflow
+through the actual TeraFlow v7 NBI/Device services with four isolated synthetic
+KMSs and two independent 014 link providers. Original lab journals are preserved.
+`make sdn-services-demo` remains the faster two-process driver-contract test.
+No physical devices are connected.
 
 ## Coverage and remaining gates
 
@@ -18,7 +20,7 @@ TeraFlow v7 driver contract, not the full controller cluster or physical devices
 | Physical-link control | Catalog desired-state create/update/delete, revision acknowledgements, separate adapter identity | IDQ/ThinkQuantum/SES control agreements, vendor adapter implementation and hardware acceptance |
 | Monitoring | Independent scoped adapter reports, sequence/freshness checks, SKR/ESKR in 015; scoped command pages and TFS sampling | 023 model, standard notification payload/transport, device alarm taxonomy and archival |
 | Metadata allocation | Existing source/evidence/issuer/age/batch/route policies composed with service state | Guaranteed bandwidth/jitter, priority/admission scheduling and automatic physical-path computation |
-| Multiple domains | Persisted pause → provision → configure → activate workflow, exact retry, partial outcomes, conservative abort | Distributed availability/HA, controller-NBI workflow deployment and multidomain interoperability assessment |
+| Multiple domains | Persisted pause → provision → configure → activate workflow, exact retry, partial outcomes, conservative abort; deployed through TFS NBI/Device with exact KMS commit verification | Distributed availability/HA, native ServiceService handler and multidomain interoperability assessment |
 | 021 and 023 | Explicit unavailable-input markers and implementation boundaries | Approved authoritative documents/models and agreed versions; no draft wire implementation claimed |
 | 015 transport/schema | Published-model JSON validation, conditional catalog CRUD and existing TTL profile | Full RESTCONF discovery/YANG library, standard event streams, complete model operations and independent assessment |
 
@@ -49,6 +51,9 @@ supports local/final-key-pool delivery; it makes no physical-path assertion.
 When links are specified, each must belong to that association, be present and
 enabled, and have a fresh matching adapter acknowledgement with an enabled
 interface and ACTIVE/PASSIVE link status.
+The catalog's remote link endpoint may be an intermediate trusted node while
+the application terminates at a different remote node. Both identities remain
+locally provisioned; the controller cannot change that trust catalog.
 
 Registration/expiry is rechecked under the repository lock at reservation and
 consumption. Removing an application clears/invalidates remaining local material

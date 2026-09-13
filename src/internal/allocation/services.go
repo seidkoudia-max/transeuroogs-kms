@@ -76,7 +76,7 @@ func (c *ServiceConfig) valid(config Config) bool {
 		}
 		found := false
 		for _, app := range config.Apps {
-			if app.Association == link.Association && app.RemoteNodeID == link.RemoteNode {
+			if app.Association == link.Association {
 				found = true
 			}
 		}
