@@ -70,3 +70,13 @@ sdn-services-demo: build
 	$(GO) build -trimpath -o .local/bin/kms-metadata ./src/cmd/kms-metadata
 	$(PYTHON) -m unittest discover -s tests -p test_sdn_services.py
 	$(PYTHON) emulator/sdn/services.py --binary .local/bin/kms --pki-binary .local/bin/test-pki --metadata-binary .local/bin/kms-metadata --node-output .local/sdn-services-node.json
+
+.PHONY: services-deployment-test services-bundle
+services-deployment-test:
+	$(PYTHON) -m unittest discover -s tests -p test_services_deployment.py
+	$(PYTHON) -m py_compile deploy/services/*.py src/sdn/teraflow/controller.py
+
+services-bundle: services-deployment-test
+	mkdir -p .local/services-bin
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GO) build -trimpath -o .local/services-bin/ ./src/cmd/kms ./src/cmd/kms-metadata ./src/cmd/test-pki
+	$(PYTHON) deploy/services/package.py .local/services-release.tar.gz

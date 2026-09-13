@@ -1,0 +1,50 @@
+{
+  "profile": "transeuroogs-services-lab-v1",
+  "namespace": "transeuroogs-services",
+  "app_id": "162493c4-206e-42db-8642-328b74cc9e8d",
+  "service_id": "aae63ad9-a686-4065-824c-5758b7f30a2b",
+  "association": {
+    "master": "SAE-WINDHOF",
+    "slave": "SAE-BETZDORF"
+  },
+  "nodes": [
+    {
+      "name": "windhof",
+      "label": "Windhof HITEC OGS",
+      "node_id": "47fa65ee-11dd-481d-8736-3c061d8d92c5"
+    },
+    {
+      "name": "jfk-idq",
+      "label": "JFK Kirchberg IDQ",
+      "node_id": "7acdd8b7-5329-450b-a667-763cc3a9cf48"
+    },
+    {
+      "name": "jfk-tq",
+      "label": "JFK Kirchberg ThinkQuantum",
+      "node_id": "1137e363-1918-491e-8d00-59537d14d9bc"
+    },
+    {
+      "name": "betzdorf",
+      "label": "Betzdorf SES",
+      "node_id": "98871dbd-f08f-4708-8627-3b89b3a5a0bc"
+    }
+  ],
+  "links": [
+    {
+      "name": "idq",
+      "source": "windhof",
+      "target": "jfk-idq",
+      "link_id": "1ef9b3d2-4c63-4e41-8cc0-4bb55e0ab2fe",
+      "provider": "link-idq",
+      "vendor": "IDQ Clarion KX/Q-KMS"
+    },
+    {
+      "name": "tq",
+      "source": "jfk-tq",
+      "target": "betzdorf",
+      "link_id": "3f167c74-e538-4701-91c0-546996c17bc5",
+      "provider": "link-tq",
+      "vendor": "ThinkQuantum QUKY"
+    }
+  ]
+}

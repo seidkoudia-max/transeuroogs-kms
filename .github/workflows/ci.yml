@@ -48,6 +48,7 @@ jobs:
         run: |
           python -m unittest discover -s tests -p test_teraflow_lab.py
           python -m unittest discover -s tests -p test_luxembourg_lab.py
+          make services-deployment-test
           python -m py_compile deploy/teraflow/deploy-lab.py deploy/teraflow/check-cluster.py
           python -m py_compile deploy/luxembourg/deploy.py deploy/luxembourg/acceptance.py deploy/luxembourg/check.py
           for script in deploy/teraflow/bootstrap-ubuntu.sh deploy/teraflow/build-images.sh deploy/teraflow/run-acceptance.sh; do bash -n "$script"; done

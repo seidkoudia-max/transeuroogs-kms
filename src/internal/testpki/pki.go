@@ -48,6 +48,11 @@ func GenerateLuxembourg(now time.Time) (PKI, error) {
 	return generate(now, nil, []string{"windhof", "jfk-idq", "jfk-tq", "betzdorf", "sae-windhof", "sae-betzdorf", "controller-sae", "unknown-sae"}, "transeuroogs-lux")
 }
 
+// GenerateServices covers the isolated controller/service/014-link acceptance lab.
+func GenerateServices(now time.Time) (PKI, error) {
+	return generate(now, nil, []string{"windhof", "jfk-idq", "jfk-tq", "betzdorf", "link-idq", "link-tq", "sae-windhof", "sae-betzdorf", "controller-sae", "observer-sae", "adapter-sae", "protection-sae", "unknown-sae"}, "transeuroogs-services")
+}
+
 func generate(now time.Time, revokedNames, names []string, namespace string) (PKI, error) {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {

@@ -105,7 +105,9 @@ outages and local allocation through the deployed controller. M6 is still planne
 no IDQ/QUKY equipment is connected. The new protected transport composes per-peer
 014 link intake with inter-KMS relay in synthetic tests. Top-level segmented SES
 final-key intake remains separate. The running Luxembourg lab has not been
-upgraded to this transport. These tests do not establish physical interoperability.
+upgraded to this transport; the separate [integrated service lab](../deploy/services/README.md)
+now deploys it with dedicated journals and link providers. These tests do not
+establish physical interoperability.
 
 The new cross-cutting increment implements explicit
 [OGS-domain key pools](KEY_POOL_DESIGN.md): immutable peer/service pool bindings,
@@ -142,6 +144,21 @@ scoped durable change pages, TFS sampling and a recoverable multi-domain workflo
 TFS driver, including lost activation replies and restarts.
 [SDN_SERVICES](SDN_SERVICES.md) records exact limits and missing inputs.
 021/023 authoritative models are unavailable; wire integration, guaranteed QoS,
-standard notifications/discovery, hardware adapters/acceptance and full-cluster
-workflow deployment remain pending. This does not complete M6 or independent
-standards conformance, and does not upgrade the already-running controller lab.
+standard notifications/discovery and hardware adapters/acceptance remain pending.
+
+## Integrated TeraFlow deployment (2026-09-13)
+
+The [service lab](../deploy/services/README.md) deploys the four-node workflow
+through TeraFlow NBI/Device, separate adapter/observer/controller identities,
+independent protected 014 link providers, pool controls and signed metadata.
+It preserves previous lab journals and publishes a reference-workflow service
+record into the native Context/WebUI. Controller writes require proof of the
+exact durable KMS commit. Acceptance covers lost activation, restarts, matching
+delivery, durable incident holds and delivery with all TFS services stopped.
+Interrupted consuming link-key requests remain uncertain; an explicit synthetic
+recovery operation retires their transfers without recycling material.
+
+The local cluster runs this integration; native ServiceService handlers,
+authoritative cross-pool evidence correspondence, operational PostgreSQL/HSM/
+witness deployment, HA and physical vendor/SES acceptance remain open. This
+does not complete M6, full SDN provisioning or independent standards conformance.

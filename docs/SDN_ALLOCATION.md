@@ -6,8 +6,9 @@ SDN controller is outside this increment. The runnable local test exercises the
 actual v7 driver contract against a KMS over mTLS. A real TeraFlow v7 controller
 is also deployed in the isolated local Ubuntu/MicroK8s allocation lab; see the
 [deployment acceptance record](../deploy/teraflow/ACCEPTANCE.md). The [service increment](SDN_SERVICES.md) extends the source with catalog lifecycle,
-adapter acknowledgements, monitoring and multi-domain coordination. The running
-cluster still uses the prior image.
+adapter acknowledgements, monitoring and multi-domain coordination. The
+[integrated service lab](../deploy/services/README.md) now deploys those features
+through the running controller with isolated state and protected synthetic links.
 
 ## Responsibility and standards boundary
 

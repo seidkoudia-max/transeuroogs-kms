@@ -4,6 +4,12 @@ Go tests live alongside their packages in `src/`. Run `make check` with a C
 compiler available for the Go race detector. `make demo` runs the built server
 and Python SAE harness over real mTLS, with no HTTP mocks.
 
+`make services-deployment-test` covers controller commit verification, late TFS
+subscriptions, isolated deployment state, manifest tampering, uncertain delivery
+handling, service expiry and explicit retirement guards. The disruptive
+[integrated TeraFlow acceptance](../deploy/services/ACCEPTANCE.md) runs separately
+in the dedicated VM; CI does not claim to deploy that cluster.
+
 | Requirements | Test groups |
 | --- | --- |
 | CORE-001, CORE-007 | `TestKeyValidationAndRedaction`, `TestUUIDs`, `TestSingleDeliveryAndTombstone` |
