@@ -6,15 +6,24 @@ from pathlib import Path
 import statistics
 import sys
 import unittest
+from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]; sys.path.insert(0,str(ROOT))
 from emulator.physical.fluctuations import Channels, gamma_parameters, gamma_draw, raman_noise, stream
 from emulator.physical.model import BB84
 from emulator.physical.simulate import run, validate
-from emulator.physical.timeline import choose_provision, physical_points
+from emulator.physical.timeline import choose_provision, physical_points, wait_for_poll
 
 
 class ChannelTests(unittest.TestCase):
+    def test_monitor_clock_does_not_oversample_or_fabricate_catchup(self):
+        with patch('emulator.physical.timeline.time.time',return_value=100), patch('emulator.physical.timeline.time.sleep') as sleep:
+            self.assertEqual(wait_for_poll(60,100,30),60)
+            sleep.assert_called_once_with(2)
+        with patch('emulator.physical.timeline.time.time',return_value=103), patch('emulator.physical.timeline.time.sleep') as sleep:
+            self.assertEqual(wait_for_poll(60,100,30),90)
+            sleep.assert_not_called()
+
     def test_gamma_gamma_moments_and_zero_turbulence(self):
         alpha,beta=gamma_parameters(.8)
         rng=stream(2026,'moments')

@@ -46,6 +46,16 @@ def choose_provision(report, at, inventories, issued, outstanding):
     return None,0
 
 
+def wait_for_poll(next_sim_s, start, speed):
+    elapsed=(time.time()-start)*speed
+    delay=(next_sim_s-elapsed)/speed
+    if delay > 0:
+        time.sleep(delay)
+        return next_sim_s
+    # Retain real time after an overrun; never synthesize missed samples.
+    return elapsed
+
+
 class Processes(segments.Processes):
     def start(self, name, args):
         p = subprocess.Popen([str(a) for a in args], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -191,9 +201,7 @@ def run(args):
                     if (sum(issued.values()) == target and delivered == target-batch and buffered) or at >= report['scenario']['duration_s']+600: break
                 next_poll+=interval
                 # No fabricated catch-up samples: retain actual observation time.
-                delay=(next_poll-(time.time()-start)*speed)/speed
-                if delay > 0: time.sleep(min(delay,1))
-                else: next_poll=(time.time()-start)*speed
+                next_poll=wait_for_poll(next_poll,start,speed)
             save(output/'timeline-observations.json',dict(trace=history,issued_by_pass=issued,deliveries=deliveries,synthetic=True))
             require(all(issued.get(p['id'],0) == settings['establish_per_pass'] for p in report['passes']),'A pass did not supply its requested end-to-end capacity')
             require(delivered == target-settings['application_batch_keys'],'End-to-end delivery target not reached')
